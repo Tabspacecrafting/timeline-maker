@@ -1,0 +1,392 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Timeline Maker</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="header">
+    <!-- Home screen heading; on a timeline, its editable title shows instead -->
+    <h1 class="app-title">Timeline Maker</h1>
+    <div class="title-row">
+      <!-- Back to the home screen (this discards the timeline, after asking) -->
+      <button id="clear" class="back-btn" type="button" aria-label="Back to the home screen" title="Back to the home screen (discards this timeline)">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5m0 0 6-6m-6 6 6 6"/></svg>
+      </button>
+      <input id="title" class="title-input" type="text" placeholder="Untitled timeline" aria-label="Timeline title" maxlength="80">
+    </div>
+    <div class="toolbar">
+      <span id="count" class="count"></span>
+      <div class="toolbar-actions">
+        <button id="toggle-all" class="pill-btn" type="button" hidden>Hide all</button>
+        <div class="btn-group" role="group" aria-label="View">
+          <button id="toggle-dir" class="icon-btn" type="button">
+            <svg class="icon-to-h" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 12h18"/><circle cx="8" cy="12" r="2.2" fill="currentColor"/><circle cx="16" cy="12" r="2.2" fill="currentColor"/></svg>
+            <svg class="icon-to-v" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v18"/><circle cx="12" cy="8" r="2.2" fill="currentColor"/><circle cx="12" cy="16" r="2.2" fill="currentColor"/></svg>
+          </button>
+          <button id="toggle-dates" class="icon-btn" type="button" aria-pressed="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15.5" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/><path d="M8 14h2M14 14h2M8 17.5h2"/></svg>
+          </button>
+          <!-- Cycles gridlines off / few / some / many; icon is drawn from app.js -->
+          <button id="toggle-grid" class="icon-btn" type="button" aria-pressed="false"></button>
+          <button id="toggle-order" class="icon-btn" type="button" aria-pressed="false">
+            <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 4v16"/><path d="M3 16l4 4 4-4"/><path d="M14 6h7M14 12h5M14 18h3"/></svg>
+          </button>
+        </div>
+        <!-- Text size on the cards: smaller / larger (one setting for every card) -->
+        <div id="text-size" class="btn-group" role="group" aria-label="Text size" hidden>
+          <button id="text-smaller" class="icon-btn text-size-btn" type="button" aria-label="Smaller text on the cards" title="Smaller text on the cards">A&minus;</button>
+          <button id="text-larger" class="icon-btn text-size-btn" type="button" aria-label="Larger text on the cards" title="Larger text on the cards">A+</button>
+        </div>
+        <div class="btn-group" role="group" aria-label="Zoom">
+          <button id="zoom-out" class="icon-btn" type="button" aria-label="Zoom out" title="Zoom out">&minus;</button>
+          <button id="zoom-in" class="icon-btn" type="button" aria-label="Zoom in" title="Zoom in">+</button>
+          <button id="zoom-fit" class="icon-btn" type="button" aria-label="Fit timeline to screen" title="Fit timeline to screen">
+            <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+          </button>
+        </div>
+        <button id="start-btn" class="pill-btn" type="button" title="Zoom all the way in and open the first event" hidden>Start</button>
+        <!-- Save the timeline to a file, or open one (the menu sits outside the button group, which clips) -->
+        <div class="file-menu">
+          <div class="btn-group" role="group" aria-label="File">
+            <button id="file-btn" class="icon-btn" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Save or open a file" title="Save or open a file">
+              <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11m0 0-4-4m4 4 4-4"/><path d="M5 15v3.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V15"/></svg>
+            </button>
+          </div>
+          <div id="file-pop" class="menu-pop" role="menu" hidden>
+            <button id="file-save" class="menu-item" type="button" role="menuitem">Save to file&hellip;</button>
+            <button id="file-open" class="menu-item" type="button" role="menuitem">Open file&hellip;</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- Horizontal mode: the timeline's scrollbar, in place of the header's bottom line -->
+    <div id="hscroll" class="scrollbar hscroll" hidden><div class="scroll-thumb"></div></div>
+  </header>
+
+  <main>
+    <!-- Home screen: pick a format, then start with a title or with an event -->
+    <section id="home" class="empty">
+      <p class="empty-text">Choose what kind of timeline to make, then give it a title or start by adding an event with the <strong>+ Add event</strong> button. Events are spaced out according to when they happened.</p>
+      <!-- The timeline's format can only be chosen while it has no events -->
+      <div class="format-picker">
+        <div class="toggle-group format-group" role="group" aria-label="Timeline type">
+          <button type="button" class="toggle-opt" data-format="datetime" aria-pressed="true">Date &amp; time</button>
+          <button type="button" class="toggle-opt" data-format="year" aria-pressed="false">Years</button>
+          <button type="button" class="toggle-opt" data-format="calendar" aria-pressed="false">Calendar year</button>
+          <button type="button" class="toggle-opt" data-format="number" aria-pressed="false">Unitless</button>
+          <button type="button" class="toggle-opt" data-format="custom" aria-pressed="false">Custom</button>
+        </div>
+        <p id="format-desc" class="format-desc"></p>
+        <!-- Custom timelines: your own units (rows are built in app.js) -->
+        <div id="custom-builder" class="custom-builder" hidden>
+          <p class="builder-head">Your units, biggest first <em>(up to 6)</em></p>
+          <button id="unit-add-big" class="secondary-btn unit-add" type="button">+ Bigger unit</button>
+          <ol id="unit-list" class="unit-list"></ol>
+          <button id="unit-add" class="secondary-btn unit-add" type="button">+ Smaller unit</button>
+          <p id="unit-note" class="unit-note" aria-live="polite"></p>
+        </div>
+      </div>
+      <div class="empty-actions">
+        <button id="create" class="primary-btn" type="button">Create timeline</button>
+        <button id="example" class="secondary-btn" type="button" title="Load an example timeline">Example</button>
+        <button id="home-open" class="secondary-btn icon-only-btn" type="button" aria-label="Open a saved timeline" title="Open a saved timeline">
+          <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 18.5V6A1.5 1.5 0 0 1 5 4.5h4l2 2.5h6.5A1.5 1.5 0 0 1 19 8.5V11"/><path d="M3.5 18.5 6 11.5a1.5 1.5 0 0 1 1.4-1H21a.5.5 0 0 1 .47.67L19 18a1.5 1.5 0 0 1-1.4 1H4.5a1 1 0 0 1-1-.5Z"/></svg>
+        </button>
+      </div>
+    </section>
+
+    <!-- Categories: a sidebar on wide screens, above the timeline otherwise.
+         The list is built in app.js. -->
+    <!-- The dock holds a spot the size of the collapsed box in the page; the
+         box itself floats over the timeline when opened, instead of pushing it down -->
+    <div id="cat-dock" class="cat-dock" hidden>
+    <aside id="cat-panel" class="cat-panel" hidden>
+      <!-- The top row: the collapse button at the top left, exactly where the collapsed
+           box's symbol (below) sits, so a click on that symbol leaves the pointer over
+           this button; the title at the right -->
+      <div class="cat-head">
+        <button id="cat-collapse" class="cat-icon-btn cat-collapse" type="button" title="Collapse tags" aria-label="Collapse tags" aria-expanded="true">
+          <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7.5 16.5v-9h9"/></svg>
+        </button>
+        <p class="cat-panel-head">Tags</p>
+      </div>
+      <ul id="cat-list" class="cat-list"></ul>
+      <div class="cat-foot">
+        <button id="cat-add" class="cat-add-btn" type="button" title="Add a tag" aria-label="Add a tag">
+          <span aria-hidden="true">+</span>
+          <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <!-- Shown instead of everything else when collapsed -->
+      <button id="cat-expand" class="cat-icon-btn cat-expand" type="button" title="Show tags" aria-label="Show tags" aria-expanded="false">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.6 13.4 13.4 20.6a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.5" fill="currentColor"/></svg>
+      </button>
+    </aside>
+    </div>
+
+    <!-- A timeline that has a title but no events yet -->
+    <section id="timeline-empty" class="empty" hidden>
+      <p class="empty-title">No events yet</p>
+      <p class="empty-text">Add the first one with the <strong>+ Add event</strong> button.</p>
+    </section>
+
+    <section id="timeline" class="timeline" hidden>
+      <div id="track" class="track"></div>
+    </section>
+  </main>
+
+  <!-- Vertical mode: the timeline's scrollbar, at the right edge of the window.
+       Both scrollbars are custom so they cover the whole timeline, however long. -->
+  <div id="vscroll" class="scrollbar vscroll" hidden><div class="scroll-thumb"></div></div>
+
+  <button id="jump-prev" class="jump jump-prev" type="button" hidden>
+    <span aria-hidden="true">&uarr;</span> Previous
+  </button>
+  <button id="jump-next" class="jump jump-next" type="button" hidden>
+    <span aria-hidden="true">&darr;</span> Next
+  </button>
+
+  <button id="add" class="fab" type="button" aria-label="Add event">
+    <span aria-hidden="true">+</span> Add event
+  </button>
+
+  <dialog id="editor" class="editor">
+    <form id="editor-form" method="dialog">
+      <h2 id="editor-heading" class="editor-heading">Add event</h2>
+
+      <label class="field">
+        <span>Title</span>
+        <input id="f-title" name="title" type="text" required maxlength="120" autocomplete="off">
+      </label>
+
+      <div class="field">
+        <span>Type</span>
+        <div class="toggle-group" role="group" aria-label="Event type">
+          <button type="button" class="toggle-opt" data-kind="moment" aria-pressed="true">Moment</button>
+          <button type="button" class="toggle-opt" data-kind="period" aria-pressed="false">Period</button>
+        </div>
+      </div>
+
+      <!-- Date + time. The "end" group is only shown for periods. -->
+      <div class="when" data-group="start">
+        <!-- Periods: each edge has its own date, or links to another event (options built in app.js) -->
+        <div class="when-head">
+          <p class="when-label">Starts</p>
+          <!-- A small "Link" button; the invisible dropdown on top of it opens the list -->
+          <label class="link-pick">
+            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+            <span class="link-btn-text">Link</span>
+            <select class="link-select" aria-label="Link the start to another event"></select>
+          </label>
+        </div>
+        <p class="linked-to" hidden></p>
+        <div class="field-row">
+          <div class="field date-field">
+            <span class="label-row">
+              <span class="date-label">Date</span>
+              <span class="label-tools">
+                <!-- Moments without a time: dot at the start or middle of the year/month/day.
+                     Icon and tooltip are set from app.js. -->
+                <button id="f-placement" class="mini-toggle" type="button" aria-pressed="false"></button>
+                <!-- Greyed out; lit up when the year is BC (text and tooltip set from app.js) -->
+                <button type="button" class="era-toggle" data-era="AD" aria-pressed="false">BC</button>
+              </span>
+            </span>
+            <div class="seg-input">
+              <input class="seg seg-2" data-part="day" type="text" inputmode="numeric" maxlength="2" placeholder="dd" aria-label="Day" autocomplete="off">
+              <i class="sep-day">/</i>
+              <input class="seg seg-2" data-part="month" type="text" inputmode="numeric" maxlength="2" placeholder="mm" aria-label="Month" autocomplete="off">
+              <i class="sep-year">/</i>
+              <input class="seg seg-4" data-part="year" type="text" inputmode="numeric" maxlength="15" placeholder="yyyy" aria-label="Year" autocomplete="off">
+            </div>
+          </div>
+          <div class="field number-field">
+            <span>Value</span>
+            <input class="num-input" data-part="num" type="text" inputmode="decimal" placeholder="0" aria-label="Value" autocomplete="off">
+          </div>
+          <!-- Custom timelines: one box per unit, built in app.js -->
+          <div class="field custom-field">
+            <span>Value</span>
+            <div class="seg-input custom-input" role="group" aria-label="Value"></div>
+          </div>
+          <div class="field time-field">
+            <span>Time <em>(optional)</em></span>
+            <div class="seg-input">
+              <input class="seg seg-2" data-part="hour" type="text" inputmode="numeric" maxlength="2" placeholder="hh" aria-label="Hours" autocomplete="off">
+              <i>:</i>
+              <input class="seg seg-2" data-part="minute" type="text" inputmode="numeric" maxlength="2" placeholder="mm" aria-label="Minutes" autocomplete="off">
+              <i>:</i>
+              <input class="seg seg-2" data-part="second" type="text" inputmode="numeric" maxlength="2" placeholder="ss" aria-label="Seconds" autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="when" data-group="end" hidden>
+        <div class="when-head">
+          <p class="when-label">Ends</p>
+          <label class="link-pick">
+            <svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/></svg>
+            <span class="link-btn-text">Link</span>
+            <select class="link-select" aria-label="Link the end to another event"></select>
+          </label>
+        </div>
+        <p class="linked-to" hidden></p>
+        <div class="field-row">
+          <div class="field date-field">
+            <span class="label-row">
+              <span class="date-label">Date</span>
+              <span class="label-tools">
+                <button type="button" class="era-toggle" data-era="AD" aria-pressed="false">BC</button>
+              </span>
+            </span>
+            <div class="seg-input">
+              <input class="seg seg-2" data-part="day" type="text" inputmode="numeric" maxlength="2" placeholder="dd" aria-label="End day" autocomplete="off">
+              <i class="sep-day">/</i>
+              <input class="seg seg-2" data-part="month" type="text" inputmode="numeric" maxlength="2" placeholder="mm" aria-label="End month" autocomplete="off">
+              <i class="sep-year">/</i>
+              <input class="seg seg-4" data-part="year" type="text" inputmode="numeric" maxlength="15" placeholder="yyyy" aria-label="End year" autocomplete="off">
+            </div>
+          </div>
+          <div class="field number-field">
+            <span>Value</span>
+            <input class="num-input" data-part="num" type="text" inputmode="decimal" placeholder="0" aria-label="End value" autocomplete="off">
+          </div>
+          <div class="field custom-field">
+            <span>Value</span>
+            <div class="seg-input custom-input" role="group" aria-label="End value"></div>
+          </div>
+          <div class="field time-field">
+            <span>Time <em>(optional)</em></span>
+            <div class="seg-input">
+              <input class="seg seg-2" data-part="hour" type="text" inputmode="numeric" maxlength="2" placeholder="hh" aria-label="End hours" autocomplete="off">
+              <i>:</i>
+              <input class="seg seg-2" data-part="minute" type="text" inputmode="numeric" maxlength="2" placeholder="mm" aria-label="End minutes" autocomplete="off">
+              <i>:</i>
+              <input class="seg seg-2" data-part="second" type="text" inputmode="numeric" maxlength="2" placeholder="ss" aria-label="End seconds" autocomplete="off">
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p id="f-hint" class="field-hint"></p>
+      <p id="f-error" class="field-error" role="alert" hidden></p>
+
+      <div class="tag-color-row">
+        <div class="field">
+          <span>Tag</span>
+          <!-- Options are built in app.js; "+ New category…" shows the row below -->
+          <select id="f-category" aria-label="Tag"></select>
+          <div id="f-newcat" class="cat-add" hidden>
+            <input id="f-newcat-name" type="text" maxlength="40" placeholder="New tag name" aria-label="New tag name" autocomplete="off">
+            <button id="f-newcat-add" class="secondary-btn" type="button">Add</button>
+          </div>
+        </div>
+
+        <!-- The colour: a dot showing the current one; it opens a menu with the swatches,
+             the custom picker and the hex code (built in app.js) -->
+        <div class="field color-field">
+          <span>Color</span>
+          <button id="f-color-btn" class="color-dot" type="button" aria-haspopup="true" aria-expanded="false"></button>
+          <div id="f-color-pop" class="color-pop" role="group" aria-label="Color" hidden></div>
+        </div>
+      </div>
+
+      <!-- Poster: one photo, shown on the event's card even when it's closed (built in app.js) -->
+      <div class="field poster-field">
+        <span class="label-row">
+          <span class="label-text">Poster <em>(optional)</em>
+            <button type="button" class="info-btn" aria-expanded="false" aria-controls="f-poster-hint" aria-label="About the poster" title="About the poster">i</button>
+          </span>
+          <button id="f-poster-btn" class="attach-btn attach-btn-small" type="button" title="Choose a photo to show on the card">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-8 8"/></svg>
+            <span id="f-poster-label">Choose photo</span>
+          </button>
+          <span id="f-poster-hint" class="hint-pop" role="note" hidden>One photo that shows on the card, even when it's closed. Or press the star on a photo in the notes.</span>
+        </span>
+        <ul id="f-poster" class="poster-pick" hidden></ul>
+        <input id="f-poster-input" type="file" accept="image/*" hidden>
+      </div>
+
+      <!-- Notes: text boxes with groups of photos and videos between them (built in app.js).
+           The button adds a photo or video after the paragraph the cursor is in. Web addresses
+           in the text are links; the panel below turns selected words (or an address) into a link. -->
+      <div class="field notes-field">
+        <span class="label-row">
+          <span class="label-text">Notes <em>(optional)</em>
+            <button type="button" class="info-btn" aria-expanded="false" aria-controls="f-notes-hint" aria-label="About the notes" title="About the notes">i</button>
+          </span>
+          <button id="f-add-media" class="attach-btn attach-btn-small" type="button" title="Add a photo or video after the paragraph the cursor is in">
+            <svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="1.8"/><path d="m21 16-5-5-8 8"/></svg>
+            Photo or video
+          </button>
+          <span id="f-notes-hint" class="hint-pop" role="note" hidden>Click in the notes where a photo or video should go, then press the button. Select words to make them a link.</span>
+        </span>
+        <div id="f-blocks" class="note-blocks"></div>
+        <div id="f-link-tool" class="link-tool" hidden>
+          <div class="lt-row">
+            <label class="lt-field"><span>Words</span><input id="lt-text" type="text" autocomplete="off" maxlength="200"></label>
+            <label class="lt-field lt-wide"><span>Address</span><input id="lt-url" type="text" inputmode="url" autocomplete="off" maxlength="2000" placeholder="https://…"></label>
+          </div>
+          <div class="lt-actions">
+            <button id="lt-apply" class="secondary-btn" type="button">Make link</button>
+            <button id="lt-remove" class="link-btn" type="button">Remove link</button>
+            <span id="lt-msg" class="lt-msg" role="alert"></span>
+          </div>
+        </div>
+        <p id="f-attach-msg" class="field-error" role="alert" hidden></p>
+        <input id="f-media-input" type="file" accept="image/*,video/*" multiple hidden>
+      </div>
+
+      <div class="editor-actions">
+        <button id="f-delete" class="danger-btn" type="button">Delete</button>
+        <button id="f-duplicate" class="link-btn" type="button">Duplicate</button>
+        <span class="spacer"></span>
+        <button id="f-cancel" class="secondary-btn" type="button">Cancel</button>
+        <button class="primary-btn" type="submit">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- "Create timeline": asks for a title, then opens the (empty) timeline -->
+  <dialog id="create-dialog" class="editor">
+    <form id="create-form" method="dialog">
+      <h2 class="editor-heading">Create timeline</h2>
+      <label class="field">
+        <span>Title</span>
+        <input id="c-title" type="text" required maxlength="80" autocomplete="off" placeholder="e.g. The Space Race">
+      </label>
+      <div class="editor-actions">
+        <span class="spacer"></span>
+        <button id="c-cancel" class="secondary-btn" type="button">Cancel</button>
+        <button class="primary-btn" type="submit">Create</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Opening a saved timeline: a hidden file picker, and a dialog for the questions and
+       problems along the way (its buttons are made in app.js) -->
+  <input id="file-input" type="file" accept=".json,.zip,application/json,application/zip" hidden>
+  <dialog id="file-dialog" class="editor">
+    <form id="file-form" method="dialog">
+      <h2 id="file-heading" class="editor-heading"></h2>
+      <p id="file-text" class="file-text"></p>
+      <div id="file-actions" class="editor-actions"></div>
+    </form>
+  </dialog>
+
+  <!-- A photo from an event's notes, enlarged (click anywhere or press Esc to close) -->
+  <dialog id="lightbox" class="lightbox" aria-label="Photo">
+    <button id="lb-close" class="lb-btn lb-close" type="button" aria-label="Close">&times;</button>
+    <button id="lb-prev" class="lb-btn lb-prev" type="button" aria-label="Previous photo">&lsaquo;</button>
+    <img id="lb-img" alt="">
+    <button id="lb-next" class="lb-btn lb-next" type="button" aria-label="Next photo">&rsaquo;</button>
+    <p id="lb-count" class="lb-count"></p>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>

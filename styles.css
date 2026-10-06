@@ -1,0 +1,1771 @@
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --text: #1c1c1e;
+  --muted: #6b6b70;
+  --faint: #a3a3a8;
+  --border: #e4e4e0;
+  --accent: #4f46e5;
+  --accent-soft: #eef0ff;
+  --period: #0d9488; /* teal, for period events, alongside the indigo accent */
+  --danger: #c62828;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 2px 8px rgba(0, 0, 0, 0.04);
+  --axis-x: 84px;
+  --radius: 12px;
+  /* The column of Prior / counter / Next at the right of a vertical timeline */
+  --rail-w: 104px;
+  --rail-right: 22px;
+  --rail-total: calc(var(--rail-w) + var(--rail-right) + 10px);
+  color-scheme: light;
+}
+@media (max-width: 639px) {
+  :root { --rail-w: 76px; --rail-right: 14px; }
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #141416;
+    --surface: #1f1f23;
+    --text: #ededf0;
+    --muted: #a0a0a8;
+    --faint: #6a6a72;
+    --border: #2e2e34;
+    --accent: #8b85ff;
+    --accent-soft: #26244a;
+    --period: #2dd4bf;
+    --danger: #ff6b6b;
+    --shadow: none;
+    color-scheme: dark;
+  }
+}
+
+@media (min-width: 640px) {
+  :root { --axis-x: 120px; }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+
+[hidden] { display: none !important; }
+
+/* ---------- Header ---------- */
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 10px;
+}
+
+.header > *,
+main {
+  max-width: 760px;
+  margin-inline: auto;
+}
+
+.title-row { display: flex; align-items: center; gap: 8px; }
+body.home .title-row { display: none; }
+.back-btn {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  margin-left: -6px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+.back-btn:hover { background: var(--accent-soft); color: var(--text, inherit); }
+.title-input {
+  display: block;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  padding: 2px 0;
+  outline: none;
+}
+.title-input::placeholder { color: var(--faint); }
+
+/* The home screen shows the app's name instead of a timeline title */
+.app-title {
+  display: none;
+  margin: 0 auto; /* auto: stay centred like the rest of the header */
+  padding: 10px 0 6px;
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  text-align: center;
+}
+body.home .app-title { display: block; }
+body.home .title-input { display: none; }
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.count { color: var(--muted); font-size: 0.85rem; }
+
+.toolbar { flex-wrap: wrap; }
+.toolbar-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 8px; margin-left: auto; }
+
+.btn-group {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.icon-btn + .icon-btn { border-left: 1px solid var(--border); }
+.icon-btn:hover { background: var(--accent-soft); }
+.icon-btn svg { transition: transform 0.2s; }
+
+/* Layout toggle shows the layout it switches to */
+.icon-to-v { display: none; }
+.horizontal .icon-to-h { display: none; }
+.horizontal .icon-to-v { display: block; }
+
+.icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+
+#toggle-grid[aria-pressed="true"],
+#toggle-dates[aria-pressed="true"] { color: var(--accent); }
+#toggle-dates[aria-pressed="false"] { color: var(--faint); }
+
+/* With the date labels off, the axis moves into their space */
+body.no-dates { --axis-x: 28px; }
+#toggle-grid[aria-pressed="false"] { color: var(--faint); }
+
+/* Order toggle: arrow flips when showing newest first */
+#toggle-order[aria-pressed="true"] { color: var(--accent); }
+#toggle-order[aria-pressed="true"] svg { transform: scaleY(-1); }
+
+.pill-btn {
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0 12px;
+}
+.pill-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* The file menu: a button with a small list under it. While it's open the
+   header (which holds it) goes above the floating Previous/Next buttons. */
+.header.menu-open { z-index: 30; }
+.file-menu { position: relative; }
+.menu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 40;
+  min-width: 160px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+}
+.menu-item {
+  display: block;
+  width: 100%;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  text-align: left;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.menu-item:hover, .menu-item:focus-visible { background: var(--accent-soft); color: var(--accent); outline: none; }
+.menu-item:disabled { color: var(--faint); cursor: default; background: transparent; }
+.file-text { margin: 0 0 14px; color: var(--muted); font-size: 0.95rem; overflow-wrap: anywhere; }
+#file-dialog { width: min(540px, calc(100% - 32px)); }
+#file-actions { flex-wrap: wrap; justify-content: flex-end; }
+
+.text-btn {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  padding: 6px 4px;
+}
+.text-btn:hover { color: var(--danger); }
+
+/* ---------- Main / empty state ---------- */
+
+main { padding: 0 16px calc(env(safe-area-inset-bottom, 0px) + 96px); }
+
+.empty {
+  text-align: center;
+  padding: 64px 8px;
+}
+.empty-title { font-size: 1.15rem; font-weight: 600; margin: 0 0 6px; }
+.empty-text { color: var(--muted); max-width: 380px; margin: 0 auto 20px; }
+.empty-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+
+/* Timeline format picker on the empty screen */
+.format-picker { max-width: 600px; margin: 0 auto 22px; }
+.format-group {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+.format-desc { margin: 8px 0 0; min-height: 2.6em; font-size: 0.85rem; color: var(--muted); }
+@media (max-width: 560px) {
+  .format-group { grid-template-columns: repeat(2, 1fr); }
+  .format-group .toggle-opt:last-child:nth-child(odd) { grid-column: 1 / -1; }
+}
+
+/* Custom timelines: building your own units (one card per unit) */
+.custom-builder { margin: 16px auto 0; max-width: 440px; text-align: left; }
+.builder-head { margin: 0 0 8px; font-size: 0.85rem; font-weight: 600; color: var(--muted); }
+.builder-head em { font-style: normal; font-weight: 400; color: var(--faint); }
+.unit-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.unit-row {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  padding: 8px 12px 12px;
+}
+.unit-head { display: flex; align-items: center; justify-content: space-between; min-height: 26px; margin-bottom: 4px; }
+.unit-title { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.02em; color: var(--muted); }
+.unit-remove {
+  width: 26px;
+  height: 26px;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.unit-remove:hover { color: var(--danger); }
+.unit-fields { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px 16px; }
+.unit-field { width: 11rem; max-width: 100%; }
+.unit-field > span { display: block; margin-bottom: 3px; font-size: 0.75rem; color: var(--muted); }
+.unit-row input {
+  width: 100%;
+  min-height: 38px;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  outline: none;
+}
+.unit-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.unit-row input::placeholder { color: var(--faint); }
+.unit-per { display: flex; align-items: center; gap: 8px; min-height: 38px; font-size: 0.88rem; color: var(--muted); }
+.unit-per input { flex: none; width: 5.5rem; text-align: center; color: var(--text); }
+.unit-add { display: block; width: 100%; }
+.unit-add:disabled { color: var(--faint); cursor: default; }
+#unit-add-big { margin-bottom: 8px; }
+#unit-add { margin-top: 8px; }
+.unit-note { margin: 10px 0 0; min-height: 1.4em; font-size: 0.85rem; color: var(--muted); text-align: center; }
+.unit-note.bad { color: var(--danger); }
+
+/* ---------- Buttons ---------- */
+
+.primary-btn, .secondary-btn, .danger-btn {
+  border-radius: 10px;
+  padding: 9px 16px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+}
+.primary-btn { background: var(--accent); color: #fff; }
+.primary-btn:hover { filter: brightness(1.08); }
+.secondary-btn { background: var(--surface); border-color: var(--border); }
+.secondary-btn:hover { border-color: var(--faint); }
+/* A button that is just an icon (its name shows as a tooltip) */
+.icon-only-btn { display: inline-flex; align-items: center; justify-content: center; padding-inline: 12px; }
+.danger-btn { background: transparent; color: var(--danger); padding-inline: 4px; }
+.link-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.95rem;
+  font-weight: 600;
+  padding: 9px 4px;
+}
+.link-btn:hover { color: var(--accent); }
+
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 999px;
+  padding: 12px 20px 12px 16px;
+  background: var(--accent);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 14px rgba(79, 70, 229, 0.35);
+}
+.fab span { font-size: 1.3rem; line-height: 1; }
+.fab:hover { filter: brightness(1.08); }
+
+/* ---------- Timeline ---------- */
+
+/* The timeline is a viewport the app moves its view through; it never
+   scrolls itself. Vertical, it fills the window below the header. */
+.timeline {
+  position: relative;
+  overflow: hidden;
+  touch-action: none; /* dragging moves the timeline, not the page */
+}
+/* Vertical: the page below the header is exactly the window's height, and
+   the timeline fills whatever the categories box (when it's above the
+   timeline, on narrower screens) leaves, so the page itself never scrolls */
+body:not(.home):not(.horizontal) main {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - var(--header-h, 90px));
+  height: calc(100dvh - var(--header-h, 90px));
+  padding-bottom: 0;
+  /* Keep clear of the column at the right: on wide windows it sits in the
+     free space beside the 760px timeline; on narrower ones it takes room
+     from the timeline's right side */
+  padding-right: max(16px, calc(var(--rail-total) - max(0px, (100vw - 760px) / 2)));
+}
+body:not(.home):not(.horizontal) .timeline { flex: 1 1 auto; min-height: 0; }
+body.dragging { cursor: grabbing; user-select: none; }
+body.dragging .track * { cursor: grabbing; }
+
+/* The timeline's scrollbars: custom, so they cover the whole timeline */
+.scrollbar {
+  position: relative;
+  background: var(--border);
+  cursor: pointer;
+  touch-action: none;
+}
+.vscroll {
+  position: fixed;
+  top: var(--header-h, 90px);
+  right: 0;
+  bottom: 0;
+  z-index: 12;
+  width: 10px;
+}
+.hscroll { height: 8px; }
+.scroll-thumb {
+  position: absolute;
+  top: 0;
+  left: 0;
+  border-radius: 5px;
+  background: var(--faint);
+  cursor: grab;
+}
+.vscroll .scroll-thumb { width: 100%; }
+.hscroll .scroll-thumb { height: 100%; }
+.scroll-thumb:hover, .scroll-thumb.active { background: var(--muted); }
+.scroll-thumb.active { cursor: grabbing; }
+
+/* Background gridlines, one per date label (major) and finer ones between */
+/* They start at the axis so they don't run through the date labels */
+/* --grid-w: 1px, except during a long flight, when they swell (set from JS) */
+.grid-line {
+  position: absolute;
+  left: var(--axis-x);
+  right: 0;
+  height: var(--grid-w, 1px);
+  margin-top: calc(var(--grid-w, 1px) / -2);
+  background: var(--border);
+  pointer-events: none;
+}
+.grid-line.minor { opacity: 0.45; }
+.horizontal .grid-line {
+  right: auto;
+  top: var(--axis-y);
+  bottom: 0;
+  width: var(--grid-w, 1px);
+  height: auto;
+  margin-top: 0;
+  margin-left: calc(var(--grid-w, 1px) / -2);
+}
+
+/* During a long flight: the time travelled, counting up, placed clear of the events */
+.flight-readout {
+  z-index: 8;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.flight-readout.shown { opacity: 1; }
+.flight-readout .unit { color: var(--muted); font-weight: 600; }
+.flight-readout .unit:not(:empty)::before { content: " "; }
+
+/* Horizontal: below the timeline, between the prior/next buttons */
+.flight-readout.below {
+  position: fixed;
+  top: var(--jump-top, 400px);
+  left: 50%;
+  z-index: 16;
+  padding: 7px 16px;
+  border-radius: 999px;
+  font-size: 1.05rem;
+  transform: translateX(-50%);
+}
+
+/* Vertical: in the column to the right of the timeline, midway between the
+   Prior and Next buttons, number above unit */
+.flight-readout.rail {
+  position: fixed;
+  top: calc((100vh + var(--header-h, 90px)) / 2);
+  top: calc((100dvh + var(--header-h, 90px)) / 2);
+  right: var(--rail-right);
+  z-index: 16;
+  width: var(--rail-w);
+  padding: 8px 6px;
+  border-radius: 14px;
+  font-size: 1.05rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: normal;
+  transform: translateY(-50%);
+}
+.flight-readout.rail span { display: block; }
+.flight-readout.rail .unit { font-size: 0.72rem; }
+.flight-readout.rail .unit::before { content: none; }
+
+/* The viewport: the window's height when vertical; when horizontal, the
+   timeline's width and (set from JS) as tall as its cards */
+.track {
+  position: relative;
+  height: 100%;
+}
+
+.axis {
+  position: absolute;
+  left: var(--axis-x);
+  /* top and height are set from JS */
+  width: 2px;
+  margin-left: -1px;
+  background: var(--border);
+}
+
+.tick {
+  position: absolute;
+  left: 0;
+  width: calc(var(--axis-x) - 14px);
+  transform: translateY(-50%);
+  text-align: right;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.tick small { display: block; color: var(--faint); font-size: 0.65rem; }
+.tick::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: -10px;
+  width: 7px;
+  height: 1px;
+  background: var(--faint);
+}
+
+/* Events far outside the part of a very long timeline that's on the page */
+.off-window { display: none !important; }
+
+/* Each event's colour, --c: its own colour (--ev, set from JS) if it has
+   one, otherwise purple for moments and teal for periods */
+.card, .dot { --c: var(--ev, var(--accent)); }
+.card.is-period, .period-band { --c: var(--ev, var(--period)); }
+
+/* The stretch of time a period event covers. It's the period's clickable
+   marker (like a moment's dot): filled when its card shows, outlined when
+   hidden. Its offset across the axis (for overlapping periods) is set from JS. */
+.period-band {
+  position: absolute;
+  left: var(--axis-x);
+  z-index: 2;
+  width: 10px;
+  margin-left: -5px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--c); /* card showing: one solid colour */
+  box-shadow: inset 0 0 0 2px var(--c);
+  transition: background 0.15s;
+}
+.period-band:hover { filter: brightness(1.12); }
+.period-band.is-hollow { background: color-mix(in srgb, var(--c) 8%, var(--bg)); }
+.period-band.is-hollow:hover { filter: none; background: color-mix(in srgb, var(--c) 30%, var(--bg)); }
+.horizontal .period-band {
+  left: auto;
+  top: var(--axis-y);
+  width: auto;
+  height: 10px;
+  margin: -5px 0 0;
+}
+/* Linked periods meet end to end with square ends, like links in a chain
+   (lo = the top/left end, hi = the bottom/right end) */
+.period-band.join-lo { border-top-left-radius: 0; border-top-right-radius: 0; }
+.period-band.join-hi { border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+.horizontal .period-band.join-lo { border-radius: 0 5px 5px 0; }
+.horizontal .period-band.join-hi { border-radius: 5px 0 0 5px; }
+.horizontal .period-band.join-lo.join-hi,
+.period-band.join-lo.join-hi { border-radius: 0; }
+
+/* The dot is a larger invisible hit area with the visible dot drawn inside */
+.dot {
+  position: absolute;
+  left: var(--axis-x);
+  z-index: 3; /* above period bands (2), so a moment dot is never covered by one */
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  transform: translate(-50%, -50%);
+}
+.dot::before {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: var(--c);
+  border: 2px solid var(--c);
+  box-shadow: 0 0 0 3px var(--bg);
+  transition: transform 0.15s, background 0.15s;
+}
+.dot.is-hollow::before { background: var(--bg); }
+.dot:hover::before { transform: scale(1.35); }
+
+/* --card-shift (set from JS) moves the whole column of cards away from the
+   axis when a crowd of dots beside it would otherwise reach them */
+.card {
+  position: absolute;
+  left: calc(var(--axis-x) + 20px + var(--card-shift, 0px));
+  right: 0;
+  z-index: 1;
+  display: block;
+  text-align: left;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 9px 14px 11px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s, opacity 0.18s, box-shadow 0.15s, left 0.2s ease;
+  /* A card is never taller than the room there is for it (the limit is set
+     from JS, see cardMaxHeight); a longer one scrolls inside itself, and keeps
+     the wheel to itself rather than moving the timeline */
+  max-height: var(--card-max-h, none);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.card:hover, .card:focus-visible { border-color: var(--c); }
+
+/* Cards that would collide with another card stay hidden until revealed */
+.card.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+/* Hovering a dot previews its card on top of everything; the preview can be
+   hovered too (which expands it) and clicked (which keeps it) */
+.card.is-hidden.peek {
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 5;
+  border-color: var(--c);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+}
+
+.card.expanded {
+  z-index: 3;
+  border-color: var(--c);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c) 18%, transparent), var(--shadow);
+  padding-right: 48px;
+}
+
+.card.flash { animation: flash 1.2s ease-out; }
+@keyframes flash {
+  0%, 30% { box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 18%, transparent); border-color: var(--c); }
+}
+
+/* The date, title and notes all scale together with --note-scale (the toolbar's
+   A- / A+ buttons), so the title stays the biggest and the date the smallest */
+.card-date {
+  display: block;
+  font-size: calc(0.75rem * var(--note-scale, 1));
+  font-weight: 600;
+  color: var(--c);
+  letter-spacing: 0.01em;
+}
+.card-title {
+  display: block;
+  font-size: calc(1em * var(--note-scale, 1));
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.card-note {
+  display: none;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  font-size: calc(0.9rem * var(--note-scale, 1)); /* (the A+ / A- buttons on an open card change --note-scale) */
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.card-note.is-empty { color: var(--faint); font-style: italic; }
+.card.expanded .card-note { display: block; }
+
+/* Hovering a card previews its expanded version on top of its neighbours
+   (clicking keeps it expanded). Skipped while card sizes are being measured,
+   so a hovered card doesn't count as bigger than it is. */
+@media (hover: hover) {
+  .track:not(.measuring) .card:is(:not(.is-hidden), .peek):not(.expanded):hover {
+    z-index: 5;
+    padding-right: 48px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  }
+  .track:not(.measuring) .card:is(:not(.is-hidden), .peek):hover .card-note { display: block; }
+  /* ...with its photos and videos, and the links listed under older notes */
+  .track:not(.measuring) .card:is(:not(.is-hidden), .peek):hover .card-note.media-only { display: block !important; }
+  .track:not(.measuring) .card:is(:not(.is-hidden), .peek):hover .card-note .card-media { display: grid; }
+  .track:not(.measuring) .card:is(:not(.is-hidden), .peek):hover .card-attach { display: block; }
+  .track:not(.measuring) .card:is(:not(.is-hidden), .peek):hover .edit-btn { display: inline-flex; }
+}
+
+/* The edit button sits in the card's top corner (in the padding that is kept
+   free for it) and stays there while the card scrolls */
+.edit-btn {
+  display: none;
+  position: sticky;
+  top: 8px;
+  float: right;
+  margin: -1px -39px 0 0;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+}
+.edit-btn:hover { color: var(--accent); border-color: var(--accent); }
+.card.expanded .edit-btn { display: inline-flex; }
+
+/* The A- / A+ buttons in the toolbar: letters rather than icons */
+.text-size-btn { font-size: 0.82rem; font-weight: 700; letter-spacing: -0.01em; }
+
+/* While the timeline is rebuilt (e.g. zooming), skip fade transitions */
+.no-anim, .no-anim * { transition: none !important; }
+
+/* ---------- Horizontal layout ---------- */
+
+body.horizontal main { max-width: none; }
+
+/* Full width; room below it for the prior/next buttons. Swiping up and
+   down over it still scrolls the page; sideways swipes move the timeline. */
+.horizontal .timeline {
+  touch-action: pan-y;
+  margin-inline: -16px;
+  padding-inline: 16px;
+  margin-bottom: 64px;
+}
+
+/* The header's scrollbar replaces its bottom border line */
+.header.has-hscroll { border-bottom: 0; padding-bottom: 0; }
+.header > .hscroll {
+  max-width: none;
+  margin: 10px -16px 0;
+}
+
+.horizontal .axis {
+  top: var(--axis-y);
+  height: 2px;
+  margin: -1px 0 0;
+}
+
+.horizontal .tick {
+  top: auto;
+  bottom: calc(100% - var(--axis-y) + 12px);
+  width: auto;
+  transform: translateX(-50%);
+  text-align: center;
+  white-space: nowrap;
+}
+.horizontal .tick::after {
+  top: auto;
+  right: auto;
+  left: 50%;
+  bottom: -9px;
+  width: 1px;
+  height: 6px;
+}
+
+.horizontal .dot { top: var(--axis-y); }
+
+.horizontal .card {
+  top: calc(var(--axis-y) + var(--card-drop) + var(--card-shift, 0px));
+  right: auto;
+  width: 220px;
+  /* (here "left" is the position along the axis, which must not animate) */
+  transition: border-color 0.15s, opacity 0.18s, box-shadow 0.15s, top 0.2s ease;
+}
+
+/* ---------- Prior / next event buttons ---------- */
+
+.jump {
+  position: fixed;
+  left: 50%;
+  z-index: 15;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 8px 14px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+}
+.jump:hover { border-color: var(--accent); color: var(--accent); }
+.jump span { color: var(--accent); }
+.jump-prev { top: calc(var(--header-h, 90px) + 10px); }
+.jump-next { bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); }
+
+/* Vertical: Prior at the top, Next at the bottom (above the Add button) and
+   the time-jump counter between them, all in a column to the right of the
+   timeline. The timeline keeps clear of the column (see main's padding). */
+body:not(.horizontal) .jump {
+  left: auto;
+  right: var(--rail-right);
+  width: var(--rail-w);
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  border-radius: 16px;
+  line-height: 1.15;
+  text-align: center;
+  font-size: 0.78rem;
+  transform: none;
+}
+body:not(.horizontal) .jump span { font-size: 1.05rem; line-height: 1; }
+body:not(.horizontal) .jump-prev { top: calc(var(--header-h, 90px) + 14px); }
+body:not(.horizontal) .jump-next { bottom: calc(env(safe-area-inset-bottom, 0px) + 84px); }
+body:not(.horizontal) .jump-next span { order: 2; } /* the arrow points down from below the label */
+
+/* Horizontal: buttons sit under the timeline, at the left and right edges */
+.horizontal .jump {
+  top: var(--jump-top, 400px);
+  bottom: auto;
+  transform: none;
+  box-shadow: none;
+}
+/* (Previous moves to the right of the tags box when that reaches down this far; set from JS) */
+.horizontal .jump-prev { left: var(--jump-prev-left, 16px); transition: left 0.2s ease; }
+.horizontal .jump-next { left: auto; right: 16px; }
+
+/* ---------- Editor dialog ---------- */
+
+.editor {
+  border: 0;
+  padding: 0;
+  width: min(440px, calc(100% - 32px));
+  border-radius: 16px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+}
+.editor::backdrop { background: rgba(0, 0, 0, 0.35); }
+
+.editor form { padding: 20px; }
+
+.editor-heading { margin: 0 0 14px; font-size: 1.15rem; }
+
+.field { display: block; margin-bottom: 12px; min-width: 0; }
+.field > span {
+  display: block;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  margin-bottom: 4px;
+}
+.field em { font-style: normal; font-weight: 400; color: var(--faint); }
+.field input, .field textarea {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 9px 11px;
+  outline: none;
+  min-height: 42px;
+}
+.field textarea { resize: vertical; }
+.field input:focus, .field textarea:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.field input::placeholder, .field textarea::placeholder { color: var(--faint); }
+
+/* dd / mm / yyyy and hh : mm : ss: small boxes that look like one input */
+.seg-input {
+  display: flex;
+  align-items: center;
+  min-height: 42px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  cursor: text;
+}
+.seg-input:focus-within {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.seg-input.invalid { border-color: var(--danger); }
+.seg-input .seg {
+  width: 3.2ch; /* wide enough for the "mm" placeholder, not just two digits */
+  min-height: 0;
+  padding: 9px 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.seg-input .seg.seg-4 { width: 4.6ch; } /* grows from JS for longer years */
+
+/* The little controls at the right end of the "Date" label */
+.label-tools { display: inline-flex; align-items: center; gap: 4px; }
+
+/* BC: greyed out until it's clicked, then lit up (AD is just "not BC") */
+.era-toggle {
+  flex: none;
+  margin: -2px 0;
+  padding: 1px 6px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+.era-toggle:hover { color: var(--muted); border-color: var(--faint); }
+.era-toggle[aria-pressed="true"] { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+#editor-form[data-format="calendar"] .era-toggle,
+#editor-form[data-format="number"] .era-toggle,
+#editor-form[data-format="custom"] .era-toggle { display: none; }
+
+/* Custom units: [5]' [11]" in one box; the unit marks sit after their number */
+.custom-input { flex-wrap: wrap; padding-block: 0; }
+.seg-input .seg-custom { width: calc(1ch + 10px); padding-inline: 5px; text-align: right; }
+.unit-tag { font-style: normal; font-weight: 600; color: var(--muted); padding: 0 3px 0 0; }
+.seg-input .seg:focus { box-shadow: none; background: var(--accent-soft); }
+.seg-input i { font-style: normal; color: var(--faint); padding: 0 2px; }
+
+/* Two or more mutually exclusive options shown as one segmented control */
+.toggle-group {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  padding: 3px;
+  gap: 3px;
+}
+.toggle-opt {
+  flex: 1;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+  padding: 7px 8px;
+}
+.toggle-opt:hover:not(:disabled) { color: var(--text); }
+.toggle-opt[aria-pressed="true"] {
+  background: var(--surface);
+  color: var(--accent);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+.toggle-opt:disabled { color: var(--faint); cursor: default; }
+
+/* Which inputs each timeline format uses (the form's data-format is set from JS):
+   years only; no year (calendar); a plain number instead of a date */
+#editor-form:not([data-format="number"]) .number-field,
+#editor-form:not([data-format="custom"]) .custom-field,
+#editor-form[data-format="number"] .date-field,
+#editor-form[data-format="number"] .time-field,
+#editor-form[data-format="custom"] .date-field,
+#editor-form[data-format="custom"] .time-field,
+#editor-form[data-format="year"] .time-field,
+#editor-form[data-format="year"] [data-part="day"],
+#editor-form[data-format="year"] [data-part="month"],
+#editor-form[data-format="year"] .sep-day,
+#editor-form[data-format="year"] .sep-year,
+#editor-form[data-format="calendar"] [data-part="year"],
+#editor-form[data-format="calendar"] .sep-year { display: none; }
+#editor-form[data-format="year"] .field-row,
+#editor-form[data-format="number"] .field-row { grid-template-columns: minmax(0, 220px); }
+#editor-form[data-format="custom"] .field-row { grid-template-columns: minmax(0, 1fr); }
+.field input.invalid { border-color: var(--danger); }
+
+/* Dropdowns in the form (e.g. Category) look like the text inputs */
+.field select {
+  width: 100%;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  outline: none;
+}
+.field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* A text input with an Add button (new category) */
+.cat-add { display: flex; gap: 8px; margin-top: 8px; }
+.cat-add input {
+  flex: 1;
+  min-width: 0;
+  min-height: 40px;
+  padding: 8px 11px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  outline: none;
+}
+.cat-add input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+
+/* ---------- Category panel ----------
+   Above the timeline; a sidebar to its left on wide screens (vertical layout) */
+.cat-panel {
+  /* The same width everywhere (the sidebar, or the box above the timeline in
+     horizontal mode and on narrow windows), left-aligned, or the whole width
+     if the window is narrower than that */
+  width: min(100%, var(--cat-w, 230px));
+  overflow-x: hidden; /* never scroll sideways; long names are cut off with "…" */
+  margin: 14px 0 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+/* Above the timeline (horizontal mode, and narrow windows): the dock keeps a
+   spot the size of the collapsed box in the page, so the timeline never
+   moves; the opened box floats over the timeline from that spot instead of
+   pushing it down. */
+.cat-dock {
+  --cat-dock-h: 56px; /* the collapsed box (38px) plus its margins */
+  position: relative;
+  flex: none;
+  height: var(--cat-dock-h);
+}
+.cat-dock > .cat-panel {
+  position: absolute;
+  top: 14px;
+  left: 0;
+  z-index: 8;
+  margin: 0;
+  max-height: calc(100vh - var(--header-h, 90px) - 40px);
+  max-height: calc(100dvh - var(--header-h, 90px) - 40px);
+  overflow-y: auto;
+}
+.cat-dock > .cat-panel:not(.collapsed) { box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14); }
+
+/* Wide windows, vertical layout: a sidebar beside the timeline, out of the page flow */
+@media (min-width: 1280px) {
+  body:not(.horizontal) .cat-dock { height: 0; }
+  body:not(.horizontal) .cat-dock > .cat-panel:not(.collapsed) { box-shadow: none; }
+  body:not(.horizontal) .cat-panel {
+    position: fixed;
+    left: 16px;
+    top: calc(var(--header-h, 90px) + 16px);
+    z-index: 6;
+    max-height: calc(100vh - var(--header-h, 90px) - 110px);
+    margin: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+}
+/* The collapse button must land exactly on the collapsed box's symbol, which
+   sits 3px in from the box's corner (the box has 3px of padding): the row pulls
+   out to there past the opened box's padding (10px above, 12px at the sides) */
+.cat-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: -7px -9px 4px;
+  padding-right: 9px;
+}
+.cat-panel-head {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.cat-list { list-style: none; margin: 0; padding: 0; }
+
+/* A category's row: colour dot (colour options), then name and number of
+   events (open/close) */
+.cat-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding-left: 4px;
+  border-radius: 8px;
+}
+.cat-row:hover, .cat-item.open > .cat-row { background: var(--bg); }
+.cat-dot {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  margin: 0 4px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+}
+.cat-dot:hover { transform: scale(1.2); }
+.cat-dot[aria-pressed="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+.cat-toggle {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 6px 6px 2px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+.cat-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.9rem;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cat-count { font-size: 0.78rem; color: var(--muted); }
+
+/* An open category: name, colour, its events, add/delete */
+/* minmax(0, 1fr): long event titles shrink (with "…") instead of widening the panel */
+.cat-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  margin-bottom: 4px;
+  padding: 8px 6px 12px;
+  border-bottom: 1px solid var(--border);
+}
+.cat-name-input {
+  width: 100%;
+  padding: 6px 9px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  font-weight: 600;
+  outline: none;
+}
+.cat-name-input:focus { border-color: var(--accent); }
+/* (twelve swatches in two rows of six, like the event form's menu) */
+.cat-body .swatches { gap: 5px; max-width: 151px; }
+.swatch-break { flex-basis: 100%; height: 0; margin: -5px 0 0; } /* (a line break between swatches: the gap is taken back) */
+.cat-body .swatch { width: 21px; height: 21px; }
+.cat-events { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; list-style: none; margin: 0; padding: 0; }
+.cat-events li { display: flex; align-items: center; gap: 4px; }
+.cat-event {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.85rem;
+  text-align: left;
+}
+.cat-event:hover { background: var(--bg); }
+.cat-event span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-event small { font-size: 0.72rem; color: var(--muted); }
+.cat-remove {
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--faint);
+  font-size: 1.1rem;
+  line-height: 1;
+}
+.cat-remove:hover { color: var(--danger); }
+.cat-none { padding: 2px 6px; font-size: 0.82rem; color: var(--faint); }
+.cat-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cat-actions .link-btn { padding: 4px 2px; font-size: 0.85rem; }
+
+/* "+ Add existing": a checklist of events to add, with Add at the bottom */
+.cat-picker {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.cat-picker-list {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  max-height: 170px;
+  overflow-y: auto;
+}
+.cat-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 5px 6px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.cat-pick:hover { background: var(--surface); }
+.cat-pick input { flex: none; margin: 3px 0 0; accent-color: var(--accent); cursor: pointer; }
+.cat-pick-text { min-width: 0; display: flex; flex-direction: column; font-size: 0.85rem; line-height: 1.25; }
+.cat-pick-title, .cat-pick-text small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cat-pick-text small { font-size: 0.72rem; color: var(--muted); }
+.cat-picker-foot {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 6px;
+  border-top: 1px solid var(--border);
+}
+.cat-picker-cancel {
+  padding: 5px 8px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+.cat-picker-cancel:hover { color: var(--text); }
+.cat-picker-add {
+  padding: 5px 14px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+.cat-picker-add:hover:not(:disabled) { filter: brightness(1.1); }
+.cat-picker-add:disabled { background: var(--border); color: var(--faint); cursor: default; }
+
+.cat-delete {
+  justify-self: start;
+  padding: 2px 0;
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+/* Bottom row: "+ (tag)" to add a category */
+.cat-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 6px;
+}
+.cat-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+}
+.cat-icon-btn:hover { color: var(--accent); background: var(--bg); }
+
+/* Collapsed: just a small box with the categories symbol */
+.cat-expand { display: none; }
+.cat-panel.collapsed {
+  width: fit-content; /* not the whole row, in horizontal mode */
+  padding: 3px;
+}
+.cat-panel.collapsed > :not(.cat-expand) { display: none; }
+.cat-panel.collapsed .cat-expand { display: inline-flex; }
+
+/* "+ (tag)": add a category */
+.cat-add-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 5px 10px;
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  font-weight: 700;
+}
+.cat-add-btn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Tag and colour share a row: the colour is just a dot that opens a menu */
+.tag-color-row { display: flex; align-items: flex-start; gap: 12px; }
+.tag-color-row > .field:first-child { flex: 1 1 auto; }
+.color-field { position: relative; flex: none; }
+.color-dot {
+  display: block;
+  width: 32px;
+  height: 32px;
+  margin: 5px 4px; /* (as tall as the tag's box beside it) */
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset, 0 0 0 2px var(--surface), 0 0 0 3px var(--border);
+  cursor: pointer;
+}
+.color-dot:hover { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset, 0 0 0 2px var(--surface), 0 0 0 3px var(--faint); }
+.color-dot[aria-expanded="true"] { box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset, 0 0 0 2px var(--surface), 0 0 0 4px var(--accent); }
+.color-pop {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 6;
+  width: 236px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+}
+
+/* "Default": ends the row of the custom colour and hex box (text, not a swatch) */
+.swatches .swatch-reset { padding: 4px 6px; font-size: 0.85rem; }
+.swatches .swatch-reset:disabled { opacity: 0.4; cursor: default; }
+
+/* Colour swatches: default, presets, a custom colour picker and a hex box */
+.swatches {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+.swatch {
+  position: relative;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.12) inset;
+  cursor: pointer;
+}
+.swatch:hover { transform: scale(1.1); }
+.swatch[aria-pressed="true"],
+.swatch-custom.is-selected { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--text); }
+/* "Default": a ring in the type's default colour */
+.swatch-default::after {
+  content: "";
+  position: absolute;
+  inset: 7px;
+  border-radius: 50%;
+  background: var(--surface);
+}
+/* Custom: a rainbow until a custom colour is chosen; the native picker sits
+   invisibly on top so clicking anywhere on it opens the picker */
+.swatch-custom { background: conic-gradient(#ef4444, #eab308, #22c55e, #06b6d4, #6366f1, #d946ef, #ef4444); }
+.swatches .swatch-custom input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+.swatches .hex-input {
+  width: calc(7ch + 22px); /* (room for "#rrggbb" and the padding) */
+  min-height: 0;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 0.85rem;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+/* A field label with a small control at its right end */
+.field > .label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+/* Small icon on/off button (e.g. the dot position next to "Date") */
+.mini-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 20px;
+  margin: -3px 0;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--faint);
+}
+.mini-toggle:hover:not(:disabled) { color: var(--text); background: var(--accent-soft); }
+.mini-toggle[aria-pressed="true"] { color: var(--accent); }
+.mini-toggle:disabled { opacity: 0.4; cursor: default; }
+
+/* "Starts" / "Ends" headings above each date/time row of a period, with the
+   dropdown for linking that edge to another event */
+.when-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+.when-label {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+/* Small "Link" button with the real dropdown laid invisibly over it */
+.link-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.link-pick:hover { color: var(--text); border-color: var(--faint); }
+.link-pick.is-linked { color: var(--period); border-color: var(--period); }
+.link-pick:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+.link-pick.invalid { border-color: var(--danger); }
+.link-select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+/* Choices that would create a loop */
+.link-select option:disabled { color: var(--faint); }
+/* Shown instead of the date inputs when an edge is linked */
+.linked-to {
+  margin: 0 0 12px;
+  padding: 9px 11px;
+  border: 1px dashed var(--period);
+  border-radius: 10px;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.field-hint { margin: -4px 0 12px; font-size: 0.78rem; color: var(--muted); }
+.field-error { margin: -6px 0 12px; font-size: 0.82rem; font-weight: 600; color: var(--danger); }
+
+/* The date gets a little more room than the time, for long years like 13,800,000,000 */
+.field-row { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 10px; }
+
+.editor-actions { display: flex; align-items: center; gap: 8px; margin-top: 6px; }
+.spacer { flex: 1; }
+
+/* ---------- Photos, videos and links ---------- */
+
+/* In the event form, the notes are text boxes with groups of photos and videos
+   between them: where a group sits in the form is where it sits on the card */
+.attach-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.attach-btn-small { padding: 4px 10px; border-radius: 8px; font-size: 0.78rem; }
+.attach-btn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.attach-btn:disabled { color: var(--faint); cursor: default; }
+.notes-field .label-row { align-items: center; margin-bottom: 6px; }
+.notes-field .field-error { margin: 8px 0 0; }
+.notes-hint { margin: 8px 0 0; font-size: 0.78rem; color: var(--faint); }
+/* The hint is a small popup under the label, so it's always where you're looking */
+.field > .label-row { position: relative; }
+.hint-pop {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  padding: 9px 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+  color: var(--text, inherit);
+  font-size: 0.82rem;
+  font-weight: 400;
+  line-height: 1.4;
+  white-space: normal;
+}
+/* The small "i" beside a label: shows or hides that field's hint */
+.label-text { display: inline-flex; align-items: center; gap: 6px; }
+.info-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  padding: 0;
+  border: 1px solid var(--faint);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--muted);
+  font: 700 0.72rem/1 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  cursor: help;
+}
+.info-btn:hover, .info-btn[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
+
+.note-blocks { display: grid; gap: 8px; }
+.field textarea.note-text-input { display: block; min-height: 42px; resize: none; overflow: hidden; line-height: 1.4; }
+.field textarea.note-text-input.is-only { min-height: 5.6em; } /* the notes before anything is added */
+
+.note-group {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+  padding: 8px;
+  border: 1px dashed var(--faint);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--bg));
+}
+.group-items { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+.group-move { display: flex; flex-direction: column; gap: 4px; }
+.group-move button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1;
+}
+.group-move button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.group-move button:disabled { opacity: 0.35; cursor: default; }
+.group-add { aspect-ratio: 1; }
+.group-add button {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 1px dashed var(--faint);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.group-add button:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.group-add button:disabled { opacity: 0.35; cursor: default; }
+
+/* The poster in the form: shown the way the card crops it */
+.poster-pick { list-style: none; margin: 0; padding: 0; }
+.poster-pick .media-thumb { width: 110px; max-width: 100%; aspect-ratio: 1; }
+
+/* The poster on a card: a photo under the title that shows even while the card
+   is closed. Its box has a fixed shape, so the card is the right height before
+   the photo has loaded. */
+.card-poster {
+  position: relative;
+  width: 100%;
+  max-width: 260px; /* (square, so not as wide as a 3:2 photo would be) */
+  aspect-ratio: 1;
+  margin-top: 8px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: var(--bg);
+}
+.card-poster img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; user-select: none; }
+.card.expanded .card-poster { cursor: zoom-in; }
+/* Open: the notes show the same photo, so the poster steps aside */
+.card.poster-in-notes.expanded .card-poster { display: none; }
+/* ...and the other way round in the hover preview (the card isn't open): the
+   poster stays, and its copy in the notes is left out, so it isn't there twice */
+.card:not(.expanded) .media-cell.is-poster { display: none; }
+.card:not(.expanded) .card-note .card-media.poster-only { display: none !important; }
+.track .card.poster-in-notes.poster-in-notes:not(.expanded) .card-note.poster-only { display: none !important; }
+.card-poster.is-missing::after {
+  content: "Photo not available";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  color: var(--faint);
+}
+
+.media-thumb {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg);
+}
+.media-thumb img, .media-thumb video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.media-thumb.is-loading::after,
+.media-thumb.is-missing::after {
+  content: "…";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--faint);
+  font-size: 1.4rem;
+}
+.media-thumb.is-missing::after { content: "?"; }
+/* A small play mark on video thumbnails */
+.media-thumb.is-video::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  bottom: 5px;
+  z-index: 1;
+  width: 0;
+  height: 0;
+  border-left: 9px solid #fff;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.7));
+}
+.media-remove {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: #fff;
+  font-size: 15px;
+  line-height: 1;
+}
+.media-remove:hover { background: var(--danger); }
+/* The star on a photo in the notes: make it the event's poster */
+.media-star {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  z-index: 1;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.65);
+  color: rgba(255, 255, 255, 0.75);
+  font-size: 13px;
+  line-height: 1;
+}
+.media-star:hover { background: var(--accent); color: #fff; }
+.media-star[aria-pressed="true"] { background: var(--accent); color: #fff; }
+
+/* The small panel that turns selected words (or a web address) into a link */
+.link-tool {
+  margin-top: 8px;
+  padding: 10px;
+  border: 1px solid var(--accent);
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+.lt-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.6fr); gap: 8px; }
+.lt-field > span { display: block; margin-bottom: 3px; font-size: 0.75rem; font-weight: 600; color: var(--muted); }
+.lt-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 8px; }
+.lt-actions .secondary-btn { padding: 6px 14px; font-size: 0.85rem; }
+.lt-msg { color: var(--danger); font-size: 0.82rem; font-weight: 600; }
+@media (max-width: 520px) {
+  .lt-row { grid-template-columns: 1fr; }
+}
+
+/* On the event's card: photos and videos sit inside the notes, where they were put,
+   and show when the card is expanded (hovering shows just the text). Links added
+   the old way (a list under the notes) are shown the same way. */
+.card-attach { display: none; margin-top: 8px; }
+.card.expanded .card-attach { display: block; }
+.card-note .note-text { display: block; }
+.card-note .card-media { display: none; margin: 8px 0; white-space: normal; }
+.card.expanded .card-note .card-media { display: grid; }
+.card:not(.expanded) .card-note.media-only { display: none !important; }
+.card-media { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 6px; }
+.media-cell {
+  position: relative;
+  display: block;
+  aspect-ratio: 1;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: zoom-in;
+}
+.media-cell img, .media-cell video { position: absolute; inset: 0; width: 100%; height: 100%; }
+.media-cell img { object-fit: cover; }
+.media-cell.is-video { grid-column: 1 / -1; aspect-ratio: 16 / 9; max-width: 440px; background: #000; cursor: default; }
+.media-cell video { object-fit: contain; background: #000; }
+/* A lone photo gets more room */
+.card-media.solo .media-cell:not(.is-video) { grid-column: 1 / -1; width: min(100%, 360px); aspect-ratio: 3 / 2; }
+.media-cell.is-missing::after,
+.media-cell.is-broken::after {
+  content: "This file isn't available";
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 6px;
+  color: var(--faint);
+  font-size: 0.75rem;
+  text-align: center;
+}
+.media-cell.is-broken::after { content: "This video can't be played here"; }
+.media-cell.is-broken video { visibility: hidden; }
+
+.card-links { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; font-size: calc(0.9rem * var(--note-scale, 1)); }
+.card-media + .card-links { margin-top: 10px; }
+.card-links a, .card-note a { color: var(--accent); overflow-wrap: anywhere; text-underline-offset: 2px; }
+.card-links a::before { content: "\2197\00a0"; text-decoration: none; display: inline-block; }
+
+/* A little paperclip after the date: this event has photos, videos or links inside */
+.card-clip { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; color: var(--faint); font-weight: 600; vertical-align: -1px; }
+.card.expanded .card-clip { display: none; }
+
+/* A photo enlarged over the page */
+.lightbox {
+  width: 100vw;
+  max-width: none;
+  height: 100vh;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: rgba(0, 0, 0, 0.92);
+  color: #fff;
+  overflow: hidden;
+}
+.lightbox[open] { display: grid; place-items: center; }
+.lightbox::backdrop { background: transparent; }
+.lightbox img { max-width: calc(100vw - 32px); max-height: calc(100vh - 32px); object-fit: contain; border-radius: 4px; }
+.lb-btn {
+  position: absolute;
+  z-index: 1;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.lb-btn:hover { background: rgba(255, 255, 255, 0.28); }
+.lb-close { top: calc(env(safe-area-inset-top, 0px) + 12px); right: 12px; }
+.lb-prev, .lb-next { top: 50%; transform: translateY(-50%); }
+.lb-prev { left: 12px; }
+.lb-next { right: 12px; }
+.lb-count { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 12px); left: 0; right: 0; margin: 0; text-align: center; font-size: 0.85rem; color: rgba(255, 255, 255, 0.7); }
+
+/* Bottom sheet on phones */
+@media (max-width: 520px) {
+  .editor {
+    width: 100%;
+    max-width: 100%;
+    margin: auto 0 0;
+    border-radius: 18px 18px 0 0;
+  }
+  .editor form { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px); }
+}
