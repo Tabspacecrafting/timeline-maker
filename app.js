@@ -5198,6 +5198,8 @@
   //   img            a picture on the card (with the scene's imgDir and imgExt: a file name;
   //                  imgRatio, width over height, shows it whole in that shape, else it's a square;
   //                  an event's own imgRatio is for a picture whose shape differs from the rest)
+  //   keepLeft       the card's left edge stays at its dot even near the right end (where a
+  //                  card otherwise hangs to the left of its dot, and could cover another)
   //   at             when (ms into the scene) the zoom into the view starts
   //   rulerUnit      (with 'num') show the ticks in this unit: 1e6 for 500M, 1,000M, ...
   //   ruler          'num' | 'year' | 'time': the scene's ticks are made for the part in
@@ -5284,7 +5286,7 @@
             { id: 'ww1', v: 1914, end: 1919, color: SC_RED, side: 'up', when: '1914 – 1918', name: 'World War I', img: 'ww1', imgRatio: 1.31 },
             { id: 'ww2', v: 1939, end: 1946, color: SC_RED, side: 'down', when: '1939 – 1945', name: 'World War II', img: 'ww2', imgRatio: 1.24 },
             { id: 'moon', v: 1969, color: SC_BLUE, side: 'up', when: '1969', name: 'Moon landing', img: 'moon-landing', imgRatio: 1 },
-            { id: 'net', v: 1983, color: SC_BLUE, side: 'down', when: '1983', name: 'The internet is born', img: 'internet', imgRatio: 0.75 },
+            { id: 'net', v: 1983, color: SC_BLUE, side: 'down', when: '1983', name: 'The internet is born', img: 'internet', imgRatio: 0.75, keepLeft: true },
           ],
         },
       ],
@@ -5554,7 +5556,8 @@
           }
           if (e.name) {
             // (opt: a card that can go on a narrow screen, where there isn't room for them all)
-            const card = el('span', `sc-mini sc-${e.side}${x > 66 ? ' sc-right' : ''}${e.opt ? ' sc-opt' : ''}`);
+            // (a card near the right edge hangs to the left of its dot, unless it says otherwise: keepLeft)
+            const card = el('span', `sc-mini sc-${e.side}${x > 66 && !e.keepLeft ? ' sc-right' : ''}${e.opt ? ' sc-opt' : ''}`);
             if (e.color) card.style.setProperty('--ev', e.color);
             card.append(el('span', 'sc-when', e.when), el('span', 'sc-name', e.name));
             if (e.img) {
