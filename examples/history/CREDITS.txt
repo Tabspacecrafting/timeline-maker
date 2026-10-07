@@ -1,0 +1,22 @@
+Pictures for the "A brief history" example, from Wikimedia Commons (shrunk to 400 px).
+
+big-bang.jpg      "WMAP 2012.png" - NASA / WMAP Science Team - public domain
+                  https://commons.wikimedia.org/wiki/File:WMAP_2012.png
+earth.jpg         "The Earth seen from Apollo 17 (cropped).jpg" - NASA / Apollo 17 crew - public domain
+                  https://commons.wikimedia.org/wiki/File:The_Earth_seen_from_Apollo_17_(cropped).jpg
+dinosaurs.jpg     "Chicxulub impact - artist impression.jpg" - Donald E. Davis / NASA - public domain
+                  https://commons.wikimedia.org/wiki/File:Chicxulub_impact_-_artist_impression.jpg
+egypt.jpg         "All Gizah Pyramids.jpg" - Ricardo Liberato - CC BY-SA 2.0
+                  https://creativecommons.org/licenses/by-sa/2.0/
+                  https://commons.wikimedia.org/wiki/File:All_Gizah_Pyramids.jpg
+rome.jpg          "Gladiators from the Zliten mosaic 3 cropped.JPG" - Roman mosaic (photo: Andibrunt) - public domain
+                  https://commons.wikimedia.org/wiki/File:Gladiators_from_the_Zliten_mosaic_3_cropped.JPG
+ww1.jpg           "Cheshire Regiment trench Somme 1916.jpg" - John Warwick Brooke - public domain
+                  https://commons.wikimedia.org/wiki/File:Cheshire_Regiment_trench_Somme_1916.jpg
+ww2.jpg           "Into the Jaws of Death 23-0455M edit.jpg" - Robert F. Sargent, US Coast Guard - public domain
+                  https://commons.wikimedia.org/wiki/File:Into_the_Jaws_of_Death_23-0455M_edit.jpg
+moon-landing.jpg  "Aldrin Apollo 11 original.jpg" - Neil Armstrong / NASA - public domain
+                  https://commons.wikimedia.org/wiki/File:Aldrin_Apollo_11_original.jpg
+internet.jpg      "BBN Interface Message Processor CHM.agr.jpg" - ArnoldReinhold - CC BY 4.0
+                  https://creativecommons.org/licenses/by/4.0/
+                  https://commons.wikimedia.org/wiki/File:BBN_Interface_Message_Processor_CHM.agr.jpg

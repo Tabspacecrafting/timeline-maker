@@ -1,0 +1,21 @@
+Pictures for the "Famous peoples heights" example, from Wikimedia Commons (shrunk to 400 px): each person's
+photo on Wikipedia, except the two basketball players, who are shown in their team kit.
+
+dinklage.jpg  "Peter Dinklage by Gage Skidmore 2.jpg" - Gage Skidmore - CC BY-SA 3.0
+              https://creativecommons.org/licenses/by-sa/3.0/
+              https://commons.wikimedia.org/wiki/File:Peter_Dinklage_by_Gage_Skidmore_2.jpg
+parton.jpg    "Young-Dolly-Parton (higher quality scan) (cropped).jpg" - David Gahr - public domain
+              https://commons.wikimedia.org/wiki/File:Young-Dolly-Parton_(higher_quality_scan)_(cropped).jpg
+cruise.jpg    "Tom Cruise at 53rd Saturn Awards 2026-01.jpg" - Kevin Paul - CC BY 4.0
+              https://creativecommons.org/licenses/by/4.0/
+              https://commons.wikimedia.org/wiki/File:Tom_Cruise_at_53rd_Saturn_Awards_2026-01.jpg
+obama.jpg     "President Barack Obama.jpg" - Pete Souza, official White House photo - public domain
+              https://commons.wikimedia.org/wiki/File:President_Barack_Obama.jpg
+jordan.jpg    "Jordan by Lipofsky 16577.jpg" - Steve Lipofsky (Basketballphoto.com) - CC BY-SA 3.0
+              https://creativecommons.org/licenses/by-sa/3.0/
+              https://commons.wikimedia.org/wiki/File:Jordan_by_Lipofsky_16577.jpg
+oneal.jpg     "Shaquille O'Neal1.jpg" - Keith Allison - CC BY-SA 2.0
+              https://creativecommons.org/licenses/by-sa/2.0/
+              https://commons.wikimedia.org/wiki/File:Shaquille_O%27Neal1.jpg
+wadlow.jpg    "Robert Wadlow postcard.jpg" - unknown author - public domain
+              https://commons.wikimedia.org/wiki/File:Robert_Wadlow_postcard.jpg

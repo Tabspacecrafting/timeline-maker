@@ -1,0 +1,19 @@
+Pictures for the "Apollo 11" example, from Wikimedia Commons (shrunk to 400 px).
+All are NASA photographs, in the public domain (one is marked CC0).
+
+launch.jpg      "Apollo 11 Launch - GPN-2000-000630.jpg" - NASA - public domain
+                https://commons.wikimedia.org/wiki/File:Apollo_11_Launch_-_GPN-2000-000630.jpg
+undock.jpg      "Apollo 11 Lunar Module Eagle in landing configuration in lunar orbit from the Command and Service Module Columbia.jpg" - NASA - public domain
+                https://commons.wikimedia.org/wiki/File:Apollo_11_Lunar_Module_Eagle_in_landing_configuration_in_lunar_orbit_from_the_Command_and_Service_Module_Columbia.jpg
+lands.jpg       "Buzz Aldrin and Apollo 11 Lunar Lander, AS11-40-5927.jpg" - Neil Armstrong / NASA - public domain
+                https://commons.wikimedia.org/wiki/File:Buzz_Aldrin_and_Apollo_11_Lunar_Lander,_AS11-40-5927.jpg
+moonwalk.jpg    "Aldrin Apollo 11 original.jpg" - Neil Armstrong / NASA - public domain
+                https://commons.wikimedia.org/wiki/File:Aldrin_Apollo_11_original.jpg
+first-step.jpg  "Apollo 11 bootprint.jpg" - Buzz Aldrin / NASA - public domain
+                https://commons.wikimedia.org/wiki/File:Apollo_11_bootprint.jpg
+aldrin.jpg      "Astronaut Edwin Aldrin descends the Lunar Module ladder, AS11-40-5868 (21037483754).jpg" - Neil Armstrong / NASA - public domain
+                https://commons.wikimedia.org/wiki/File:Astronaut_Edwin_Aldrin_descends_the_Lunar_Module_ladder,_AS11-40-5868_(21037483754).jpg
+liftoff.jpg     "AS11-44-6642 (21689650582).jpg" - Michael Collins / NASA (Project Apollo Archive) - public domain
+                https://commons.wikimedia.org/wiki/File:AS11-44-6642_(21689650582).jpg
+splashdown.jpg  "Astronauts in Lifeboat After Apollo 11 Splashdown MET DP-15797-023.jpg" - NASA (The Metropolitan Museum of Art) - CC0
+                https://commons.wikimedia.org/wiki/File:Astronauts_in_Lifeboat_After_Apollo_11_Splashdown_MET_DP-15797-023.jpg

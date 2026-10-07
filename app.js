@@ -1,6 +1,9 @@
 (() => {
   'use strict';
 
+  // Where this script is, so the examples' pictures are found next to it
+  const APP_URL = document.currentScript && document.currentScript.src ? document.currentScript.src : location.href;
+
   // ---------- Layout tuning ----------
   // Values keyed by v (vertical) / h (horizontal) layout.
   const STORE_KEY = 'timeline-maker:v1';
@@ -28,7 +31,7 @@
   const AXIS_Y_NO_DATES = 24; // ...or with the date labels turned off
   const CARD_DROP = 16;     // horizontal: gap between the axis and the cards
   const ZOOM_MIN = 0.25;    // you can always zoom out at least this far...
-  const ZOOM_MAX = 8;       // ...and in at least this far (more if events need it)
+  const ZOOM_MAX = 8;       // (the zoom-in limit until the timeline is laid out; then it's as far as its events need)
   // The timeline isn't one long page: it's a fixed-size viewport onto it,
   // and the app moves the view itself (see "The view"). So it can be any
   // length, and zoom as deep as the events need.
@@ -45,6 +48,17 @@
     number: 'Events are plain numbers from −1,000,000,000,000,000 to 1,000,000,000,000,000, with up to 3 decimals.',
     custom: 'Make your own units, like feet and inches, and say how many of one fit into the next. Events are values in those units.',
   };
+  // The home screen's help: a paragraph for each type, named as on its tab
+  {
+    const help = document.getElementById('format-help');
+    document.querySelectorAll('.format-group [data-format]').forEach((b) => {
+      const p = document.createElement('p');
+      const name = document.createElement('strong');
+      name.textContent = b.textContent;
+      p.append(name, ` ${FORMAT_INFO[b.dataset.format]}`);
+      help.append(p);
+    });
+  }
   // Custom timelines: up to this many units, biggest first. Each unit after the
   // first says how many of it make 1 of the unit before ("per"): 12 inches = 1 foot.
   const MAX_UNITS = 6;
@@ -95,7 +109,6 @@
     form: $('#editor-form'),
     heading: $('#editor-heading'),
     fTitle: $('#f-title'),
-    formatDesc: $('#format-desc'),
     customBuilder: $('#custom-builder'),
     unitList: $('#unit-list'),
     unitAdd: $('#unit-add'),
@@ -708,6 +721,27 @@
     return `<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3.5" y="3.5" width="17" height="17" rx="2"/><path d="${path}"/></svg>`;
   }
 
+  // A picture of the boxes an event is filled in with, for the chosen type (home screen):
+  // each box is a run of grey placeholders, like the empty form's. Custom timelines have
+  // their own builder instead.
+  const FORMAT_FIELDS = {
+    datetime: [['dd', '/', 'mm', '/', 'yyyy'], ['hh', ':', 'mm', ':', 'ss']],
+    year: [['yyyy']],
+    calendar: [['dd', '/', 'mm'], ['hh', ':', 'mm', ':', 'ss']],
+    number: [['0']],
+  };
+  function drawFormatFields() {
+    const boxes = FORMAT_FIELDS[state.format] || [];
+    const host = $('#format-fields');
+    host.hidden = !boxes.length;
+    host.textContent = '';
+    boxes.forEach((parts) => {
+      const box = el('span', 'ff-box');
+      parts.forEach((p) => box.append(el(p.length === 1 && p !== '0' ? 'i' : 'span', null, p)));
+      host.append(box);
+    });
+  }
+
   function updateControls() {
     const h = state.horizontal;
     document.body.classList.toggle('horizontal', h);
@@ -719,7 +753,7 @@
     document.querySelectorAll('[data-format]').forEach((b) => {
       b.setAttribute('aria-pressed', String(b.dataset.format === state.format));
     });
-    els.formatDesc.textContent = FORMAT_INFO[state.format];
+    drawFormatFields();
     applyNoteScale();
     els.customBuilder.hidden = state.format !== 'custom';
     if (state.format === 'custom' && !builderBuilt) buildBuilder();
@@ -804,8 +838,8 @@
     card.addEventListener('click', (e) => {
       // Links, videos and photos are for using, not for expanding the card
       if (e.target.closest('.card-note a, .card-media, .card-attach')) return;
-      // The poster opens the card, and enlarges once it's open
-      if (poster && e.target.closest('.card-poster') && expandedId === ev.id) { openLightbox([poster.m], poster.m.id); return; }
+      // The poster shows the whole picture (it's cropped to a square on the card)
+      if (poster && e.target.closest('.card-poster')) { openLightbox([poster.m], poster.m.id); return; }
       toggleExpanded(ev.id);
     });
     card.addEventListener('keydown', (e) => {
@@ -878,6 +912,7 @@
     const home = !state.started && n === 0;
     document.body.classList.toggle('home', home);
     els.home.hidden = !home;
+    showcase.setActive(home);
     els.timelineEmpty.hidden = home || n > 0;
     els.timeline.hidden = n === 0;
     els.toolbar.hidden = home;
@@ -971,10 +1006,10 @@
       fitZoom = Math.max(0.01, pxPerTime / basePx);
     }
 
-    // Zoom limits. In: far enough that every pair of neighbouring events (at
-    // different times) has room for the first one's card fully expanded.
-    // Out: far enough to fit the whole timeline on screen. Fit-to-screen is
-    // always within them.
+    // Zoom limits. In: just far enough that every pair of neighbouring events (at
+    // different times) has room for the first one's card fully expanded, and no
+    // further (zooming in more would only spread them out). Out: far enough to
+    // fit the whole timeline on screen. Fit-to-screen is always within them.
     if (basePx > 0) {
       let needPx = 0;
       for (let i = 0; i < n; i++) {
@@ -984,9 +1019,8 @@
       }
       zoomLimits = {
         min: Math.min(ZOOM_MIN, fitZoom),
-        max: Math.max(ZOOM_MAX, fitZoom, (needPx / basePx) * 1.05),
-      };
-      state.zoom = clamp(state.zoom, zoomLimits.min, zoomLimits.max);
+        max: Math.max(fitZoom, (needPx / basePx) * 1.05),
+      };      state.zoom = clamp(state.zoom, zoomLimits.min, zoomLimits.max);
     } else {
       zoomLimits = { min: state.zoom, max: state.zoom };
     }
@@ -1000,8 +1034,7 @@
     // notes, photos and videos make it, and one near the end has to be able to
     // scroll fully into view, clear of the margin that Previous/Next keeps)
     const tail = Math.max(TAIL[m], Math.max(...expandedSizes) + JUMP_MARGIN[m] + END_PAD);
-    scale = { tMin, tMax, start: START_PAD[m] + ANCHOR[m], tail, basePx, pxPerMs: basePx * state.zoom, vx: 0 };
-    if (scale.pxPerMs) {
+    scale = { tMin, tMax, start: START_PAD[m] + ANCHOR[m], tail, basePx, pxPerMs: basePx * state.zoom, vx: 0 };    if (scale.pxPerMs) {
       scale.vx = minVx();
       if (anchor) {
         const v = viewRange();
@@ -1125,6 +1158,23 @@
       it.inWindow = hi >= -OUTSIDE && lo <= winEnd + OUTSIDE;
       it.card.classList.toggle('off-window', !it.inWindow);
       it.dot.classList.toggle('off-window', !it.inWindow);
+    }
+
+    // A card that was outside the window when the cards were last measured has no
+    // size on record (a hidden card measures nothing). Once it comes into the
+    // window, measure it now: otherwise a tall card scrolling in would count as
+    // no height at all, and the timeline would be too short to show its bottom.
+    if (cardSizes.length === items.length) {
+      let measuring = false;
+      items.forEach((it, i) => {
+        if (!it.inWindow || it.sized) return;
+        if (!measuring) { els.track.classList.add('measuring'); measuring = true; }
+        sizePoster(it);
+        cardSizes[i] = state.horizontal ? it.card.offsetWidth : it.card.offsetHeight;
+        cardHeights[i] = it.card.offsetHeight;
+        it.sized = cardSizes[i] > 0;
+      });
+      if (measuring) els.track.classList.remove('measuring');
     }
 
     // Keep the cards clear of the dots and period bands beside the axis. If a
@@ -1287,9 +1337,11 @@
     });
     // Ignore any hover preview while measuring
     els.track.classList.add('measuring');
+    items.forEach(sizePoster);
     cardSizes = items.map((it) => (h ? it.card.offsetWidth : it.card.offsetHeight));
     cardHeights = items.map((it) => it.card.offsetHeight);
     els.track.classList.remove('measuring');
+    items.forEach((it, i) => { it.sized = cardSizes[i] > 0; }); // (cards outside the window have no size yet: see positionItems)
 
     arrange(true);
   }
@@ -1680,7 +1732,8 @@
   // Prior/Next); without it, only flights that zoom out show one, measured
   // from where the view was. `key` names what asked for the flight, so asking
   // for the same thing again can skip it (see skipFlight).
-  function flyTo(t, at, onDone, span, key) {
+  // `minMs` is the least time a leg takes (a plain zoom step is quicker than a jump).
+  function flyTo(t, at, onDone, span, key, minMs = FLIGHT_LEG_MS.min) {
     if (!scale || !scale.pxPerMs) return;
     stopViewAnimation(true);
     const pxEnd = scale.basePx * state.zoom;
@@ -1695,7 +1748,7 @@
     const w1 = len / pxEnd;
     const peak = PEAK_ROOM * Math.abs(u1 - u0);
 
-    const legTime = (path) => clamp(FLIGHT_MS_PER_S * path.S, FLIGHT_LEG_MS.min, FLIGHT_LEG_MS.max);
+    const legTime = (path) => clamp(FLIGHT_MS_PER_S * path.S, minMs, Math.max(minMs, FLIGHT_LEG_MS.max));
     const leg = (path) => ({ path, ms: legTime(path) });
     const legs = peak <= Math.max(w0, w1)
       ? [leg(flightPath(u0, w0, u1, w1))]
@@ -1849,16 +1902,28 @@
   }
 
   // --- Moving the view yourself ---
-  // The wheel scrolls the timeline (Ctrl + wheel zooms, see Zoom). At either
-  // end, the page gets the wheel instead (e.g. back up to the categories).
-  els.timeline.addEventListener('wheel', (e) => {
-    if (!scale || e.ctrlKey || e.metaKey) return;
-    // Over a card that scrolls inside itself (a long card in horizontal mode) the
-    // wheel scrolls the card and leaves the timeline where it is
-    if (Math.abs(e.deltaY) >= Math.abs(e.deltaX) && e.target instanceof Element) {
-      const card = e.target.closest('.card');
+  // The wheel scrolls the timeline (Ctrl + wheel zooms, see Zoom), wherever the
+  // pointer is below the header (over the empty space beside it, the buttons...),
+  // except over something that scrolls itself or a dialog. At either end, the
+  // page gets the wheel instead (e.g. back up to the categories).
+  const scrollsItself = (node) => {
+    for (; node && node !== document.body; node = node.parentElement) {
+      const s = getComputedStyle(node);
+      if (/(auto|scroll)/.test(s.overflowY) && node.scrollHeight > node.clientHeight + 1) return true;
+    }
+    return false;
+  };
+  window.addEventListener('wheel', (e) => {
+    if (!scale || e.ctrlKey || e.metaKey || els.timeline.hidden) return;
+    const target = e.target instanceof Element ? e.target : null;
+    if (!target || target.closest('.header, dialog, [popover]') || document.querySelector('dialog[open]')) return;
+    // Over a card that scrolls inside itself (a long card) the wheel scrolls the
+    // card and leaves the timeline where it is
+    if (Math.abs(e.deltaY) >= Math.abs(e.deltaX)) {
+      const card = target.closest('.card');
       if (card && card.scrollHeight > card.clientHeight + 1) return;
     }
+    if (!els.timeline.contains(target) && scrollsItself(target)) return;
     const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? trackLen() : 1;
     const raw = state.horizontal && Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
     const delta = raw * unit;
@@ -1879,9 +1944,16 @@
   // Dragging the timeline (mouse, pen or finger) moves it; a flick keeps it going
   let drag = null;
   let suppressClick = false;
-  els.timeline.addEventListener('pointerdown', (e) => {
-    if (!scale || e.button !== 0 || e.target.closest('input, select, textarea, video')) return; // (a video's own controls drag too)
-    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, vx: scale.vx, moved: false, samples: [] };
+  // ...from anywhere below the header (like the wheel, see above), except from buttons and
+  // things that scroll or do something with the pointer themselves
+  window.addEventListener('pointerdown', (e) => {
+    const target = e.target instanceof Element ? e.target : null;
+    if (!scale || !target || e.button !== 0 || els.timeline.hidden || document.querySelector('dialog[open]')) return;
+    if (target.closest('input, select, textarea, video, button')) return; // (a video's own controls drag too)
+    if (!els.timeline.contains(target)) {
+      if (target.closest('.header, dialog, [popover], a, label, .cat-panel, .hint-pop') || scrollsItself(target)) return;
+    }
+    drag ={ id: e.pointerId, x: e.clientX, y: e.clientY, vx: scale.vx, moved: false, samples: [] };
   });
   window.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
@@ -2109,8 +2181,20 @@
     const h = state.horizontal;
     const m = mode();
     const { start, end } = viewRange();
-    // A card far off screen isn't drawn, so isn't measured: assume a typical size
-    const size = (h ? it.card.offsetWidth : it.card.offsetHeight) || (h ? 220 : 70);
+    // A card far off screen isn't drawn, so it hasn't been measured: show it for a moment to
+    // measure it (as it is now, open if it's the one being jumped to), so the view stops
+    // where the whole card is in it, however tall it is
+    let size = h ? it.card.offsetWidth : it.card.offsetHeight;
+    if (!size) {
+      const hidden = it.card.classList.contains('off-window');
+      if (hidden) it.card.classList.remove('off-window');
+      els.track.classList.add('measuring');
+      sizePoster(it);
+      size = h ? it.card.offsetWidth : it.card.offsetHeight;
+      els.track.classList.remove('measuring');
+      if (hidden) it.card.classList.add('off-window');
+    }
+    if (!size) size = h ? 220 : 70; // (hidden some other way: a typical size)
     const margin = JUMP_MARGIN[m];
     // Where its dot (or band start) should end up: just inside the view on
     // the side it comes from, or where it is if the card is already in view
@@ -2226,8 +2310,29 @@
       save();
     }, undefined, 'start');
   });
-  els.zoomIn.addEventListener('click', () => zoomBy(1.5));
-  els.zoomOut.addEventListener('click', () => zoomBy(1 / 1.5));
+  // The + and - buttons: the view glides to the new zoom, keeping the middle
+  // of what's showing in the middle. Pressing the same button again while it's
+  // under way lands it at once (instead of zooming a further step), like
+  // Previous/Next and Fit do; the other button turns it round.
+  const ZOOM_STEP_MS = 450;
+  function zoomStep(factor, key) {
+    if (!scale || !scale.pxPerMs || skipFlight(key)) return;
+    const target = clamp(state.zoom * factor, zoomLimits.min, zoomLimits.max);
+    if (Math.abs(target / state.zoom - 1) < 1e-6) return;
+    const v = viewRange();
+    const middle = (v.start + v.end) / 2;
+    const t = timeAt(middle);
+    state.zoom = target; // (the flight ends at this zoom)
+    save();
+    updateZoomButtons();
+    flyTo(t, middle, () => {
+      layout(); // settle which cards show, now it's arrived
+      updateZoomButtons();
+      save();
+    }, undefined, key, ZOOM_STEP_MS);
+  }
+  els.zoomIn.addEventListener('click', () => zoomStep(1.5, 'zoom-in'));
+  els.zoomOut.addEventListener('click', () => zoomStep(1 / 1.5, 'zoom-out'));
 
   // Ctrl + scroll wheel (or a trackpad pinch) zooms, one update per frame
   let pendingZoom = 1;
@@ -2524,11 +2629,31 @@
     const m = ev.poster && (ev.media || []).find((x) => x.id === ev.poster && x.kind === 'image');
     if (!m) return null;
     const box = el('div', 'card-poster');
+    // "Fit": the box has the picture's own shape (within the square), so the whole
+    // picture shows with nothing around it; otherwise it's a square and the picture fills it
+    if (ev.posterFit === 'fit' && ev.posterRatio > 0) {
+      box.classList.add('fit');
+      box.style.setProperty('--ar', String(ev.posterRatio));
+    }
     const node = document.createElement('img');
     node.alt = `Poster: ${m.name}`;
     node.draggable = false;
     box.append(node);
     return { box, node, m };
+  }
+
+  // On a vertical timeline a card is never taller than its limit (see cardMaxHeight), and
+  // a longer one scrolls inside itself. The poster, which comes right after the title,
+  // is made smaller (--poster-h) where it would otherwise not fit in that, so it's always
+  // fully in view (the notes below it may still scroll). Horizontal cards are narrow
+  // enough that their posters always fit.
+  function sizePoster(it) {
+    if (!it.poster) return;
+    if (state.horizontal) { it.card.style.removeProperty('--poster-h'); return; }
+    const box = it.poster.box;
+    if (!box.offsetParent || !Number.isFinite(cardMaxH)) return; // (not laid out: it's done when it is)
+    const room = cardMaxH - 2 /* borders */ - 11 /* padding below */ - box.offsetTop;
+    it.card.style.setProperty('--poster-h', `${Math.max(48, Math.floor(room))}px`);
   }
 
   // Fetches the poster when its card first shows (the box is already the right
@@ -2565,6 +2690,12 @@
         cell.type = 'button';
         cell.title = m.name;
         cell.setAttribute('aria-label', `Enlarge photo: ${m.name}`);
+        // "Fit": the cell takes the photo's own shape (within its square), so all of it
+        // shows with nothing around it; otherwise the photo fills a square, cropped
+        if (m.fit && m.ratio > 0) {
+          cell.classList.add('fit');
+          cell.style.setProperty('--ar', String(m.ratio));
+        }
         const node = document.createElement('img');
         node.alt = m.name;
         cell.append(node);
@@ -2696,6 +2827,7 @@
   const addMediaBtn = $('#f-add-media');
   let editorMedia = [];
   let editorPoster = null; // the poster, one of editorMedia (but not in the notes)
+  let editorPosterFit = 'fit'; // 'fit' (the whole picture, in its own shape: the usual) or 'fill' (a square, cropped)
   let noteBlocks = []; // [{ type: 'text', text, el } | { type: 'group', items: [item], el }]
   let noteCaret = null; // the last cursor in the notes, { block, pos }: where "Photo or video" puts its photos
   let addTarget = null; // the group whose "+" was pressed
@@ -2813,6 +2945,18 @@
     }
   }
 
+  // The little icons on a photo's Fit / Fill button: the whole photo inside its
+  // square, or a square filled
+  const FIT_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="7" width="18" height="10" rx="1.5"/></svg>';
+  const FILL_SVG = '<svg viewBox="0 0 24 24" width="13" height="13" aria-hidden="true" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="1.5"/></svg>';
+  // Shows which of the two a Fit / Fill button is on now, and what a click will do
+  function paintFitButton(button, fit) {
+    button.innerHTML = fit ? FIT_SVG : FILL_SVG;
+    button.setAttribute('aria-pressed', String(fit));
+    button.title = fit ? 'Shown whole (fit). Click to crop it to fill a square' : 'Cropped to fill a square (fill). Click to show the whole photo';
+    button.setAttribute('aria-label', button.title);
+  }
+
   // `inNotes`: it's a photo in the notes (which can be made the poster, with the
   // star); otherwise it's the poster's own preview in the poster section
   function thumbElement(m, inNotes = true) {
@@ -2842,6 +2986,27 @@
       star.addEventListener('click', () => togglePoster(m));
       li.append(star);
     }
+    // Fit (the whole photo, in its own shape) or Fill (cropped to a square), on the card
+    if (inNotes && m.kind === 'image' && !m.loading) {
+      const fitBtn = el('button', 'media-fit');
+      fitBtn.type = 'button';
+      const paint = () => {
+        li.classList.toggle('is-fit', !!m.fit);
+        paintFitButton(fitBtn, !!m.fit);
+      };
+      paint();
+      fitBtn.addEventListener('click', async () => {
+        if (m.fit) { m.fit = false; paint(); return; }
+        m.fit = true;
+        paint();
+        if (!(await measureRatio(m))) {
+          m.fit = false;
+          paint();
+          showAttachMessage(`The shape of ${m.name} couldn't be read, so it stays cropped to a square.`);
+        }
+      });
+      li.append(fitBtn);
+    }
     return li;
   }
 
@@ -2853,6 +3018,7 @@
   function unsetPoster() {
     const m = editorPoster;
     if (!m) return;
+    editorPosterFit = 'fit';
     if (noteBlocks.some((b) => b.type === 'group' && b.items.includes(m))) {
       editorPoster = null;
       renderPosterField();
@@ -2866,10 +3032,13 @@
   // again) not any more. Another poster is let go of.
   function togglePoster(m) {
     if (editorPoster === m) { unsetPoster(); return; }
+    const fit = editorPosterFit; // (the new poster is shown the way the one it replaces was)
     if (editorPoster) unsetPoster();
     editorPoster = m;
+    editorPosterFit = fit;
     renderPosterField();
     refreshGroups();
+    if (fit === 'fit') measureRatio(m).then(() => { if (editorPoster === m) renderPosterField(); });
   }
 
   // One group: its photos and videos, a "+" tile to add more, and arrows
@@ -2903,6 +3072,7 @@
     if (unsavedBlobs.delete(m.id)) { unsavedThumbs.delete(m.id); forgetUrl(m.id); }
     if (m === editorPoster) {
       editorPoster = null;
+      editorPosterFit = 'fit';
       renderPosterField();
     }
     const group = noteBlocks.find((b) => b.type === 'group' && b.items.includes(m));
@@ -2997,7 +3167,8 @@
       if (!isVideo && !file.type.startsWith('image/')) { problems.push(`${file.name} isn't a photo or video.`); continue; }
       const limit = isVideo ? MAX_VIDEO_BYTES : MAX_PHOTO_BYTES;
       if (file.size > limit) { problems.push(`${file.name} is over ${limit / 1024 / 1024} MB.`); continue; }
-      const item = { id: newId(), kind: isVideo ? 'video' : 'image', name: file.name, loading: true };
+      // (a new photo is shown whole, "fit", unless it's changed to "fill")
+      const item = { id: newId(), kind: isVideo ? 'video' : 'image', name: file.name, loading: true, fit: !isVideo };
       editorMedia.push(item);
       if (group && noteBlocks.includes(group)) {
         group.items.push(item);
@@ -3013,6 +3184,7 @@
           unsavedBlobs.set(item.id, prepared.blob);
           if (prepared.thumb) unsavedThumbs.set(item.id, prepared.thumb);
           item.loading = false;
+          if (item.fit && !(await measureRatio(item))) item.fit = false; // (its shape, for showing it whole)
           const g = noteBlocks.find((b) => b.type === 'group' && b.items.includes(item));
           if (g) fillNoteGroup(g);
         } catch (err) {
@@ -3043,7 +3215,8 @@
       b.setAttribute('aria-expanded', String(!hint.hidden));
     });
   });
-  els.editor.addEventListener('click', (e) => { if (!e.target.closest('.info-btn, .hint-pop')) closeHints(); });
+  document.addEventListener('click', (e) => { if (!e.target.closest('.info-btn, .hint-pop')) closeHints(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !els.editor.open) closeHints(); });
   els.editor.addEventListener('close', () => closeHints());
 
   // --- The poster, in the form ---
@@ -3051,26 +3224,81 @@
   const posterBtn = $('#f-poster-btn');
   const posterInput = $('#f-poster-input');
 
-  // Shows the chosen photo (with its × to take it away), or nothing
+  // The shape of a photo (its width over its height), found by loading it; null if
+  // that can't be told. Kept on the photo's entry in the form (`ratio`).
+  function measureRatio(m) {
+    if (m.ratio) return Promise.resolve(m.ratio);
+    return thumbUrl(m.id).then((url) => new Promise((resolve) => {
+      if (!url) { resolve(null); return; }
+      const img = new Image();
+      img.onload = () => {
+        const r = img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0;
+        m.ratio = r > 0.05 && r < 20 ? r : null;
+        resolve(m.ratio);
+      };
+      img.onerror = () => resolve(null);
+      img.src = url;
+    }));
+  }
+
+  // Shows the chosen photo (with its × to take it away, and the Fit / Fill button) the
+  // way the card will show it; or nothing
   function renderPosterField() {
     posterList.textContent = '';
     posterList.hidden = !editorPoster;
-    if (editorPoster) posterList.append(thumbElement(editorPoster, false));
-    $('#f-poster-label').textContent = editorPoster ? 'Change photo' : 'Choose photo';
+    if (editorPoster) {
+      const thumb = thumbElement(editorPoster, false);
+      if (editorPosterFit === 'fit' && editorPoster.ratio) {
+        thumb.classList.add('fit');
+        thumb.style.setProperty('--ar', String(editorPoster.ratio));
+      }
+      if (!editorPoster.loading) {
+        const fitBtn = el('button', 'media-fit');
+        fitBtn.type = 'button';
+        paintFitButton(fitBtn, editorPosterFit === 'fit');
+        fitBtn.addEventListener('click', () => setPosterFit(editorPosterFit === 'fit' ? 'fill' : 'fit'));
+        thumb.append(fitBtn);
+        // Clicking the picture itself picks another
+        thumb.title = 'Click to choose another photo';
+        thumb.classList.add('can-change');
+        thumb.addEventListener('click', (e) => { if (e.target.tagName === 'IMG') posterInput.click(); });
+      }
+      posterList.append(thumb);
+    }
+    posterBtn.hidden = !!editorPoster; // (the empty tile; once there's a picture, it is the picture)
     posterBtn.disabled = !storageOk;
     posterBtn.title = storageOk ? 'Choose a photo to show on the card' : 'This browser can\'t store photos here';
+  }
+
+  // Fill: a square, the picture cropped to fill it. Fit: the whole picture, in its own shape.
+  async function setPosterFit(fit) {
+    if (!editorPoster) return;
+    editorPosterFit = fit;
+    renderPosterField();
+    posterList.querySelector('.media-fit')?.focus(); // (the button is rebuilt: the keyboard stays on it)
+    if (fit === 'fit' && !editorPoster.ratio) {
+      const m = editorPoster;
+      await measureRatio(m);
+      if (editorPoster === m) {
+        renderPosterField();
+        posterList.querySelector('.media-fit')?.focus();
+      }
+    }
   }
 
   async function choosePoster(file) {
     if (!file.type.startsWith('image/')) { showAttachMessage(`${file.name} isn't a photo.`); return; }
     if (file.size > MAX_PHOTO_BYTES) { showAttachMessage(`${file.name} is over ${MAX_PHOTO_BYTES / 1024 / 1024} MB.`); return; }
-    // (a poster being replaced goes first, so it frees its place among the event's files)
+    // (a poster being replaced goes first, so it frees its place among the event's files;
+    // the new one is shown the way it was: Fill or Fit)
+    const fit = editorPosterFit;
     if (editorPoster) unsetPoster();
     if (editorMedia.length >= MAX_MEDIA) { showAttachMessage(`An event can have up to ${MAX_MEDIA} photos and videos.`); return; }
     showAttachMessage('');
     const item = { id: newId(), kind: 'image', name: file.name, loading: true };
     editorMedia.push(item);
     editorPoster = item;
+    editorPosterFit = fit;
     renderPosterField();
     const task = (async () => {
       try {
@@ -3079,6 +3307,8 @@
         unsavedBlobs.set(item.id, prepared.blob);
         if (prepared.thumb) unsavedThumbs.set(item.id, prepared.thumb);
         item.loading = false;
+        await measureRatio(item); // (for Fit)
+        if (editorPoster !== item) return;
         renderPosterField();
       } catch (err) {
         if (editorPoster === item) dropItem(item);
@@ -3207,8 +3437,11 @@
 
   // Fills the form's notes for the event being opened (empty for a new one)
   function loadEditorAttachments(ev) {
-    editorMedia = ((ev && ev.media) || []).map(({ id, kind, name }) => ({ id, kind, name }));
+    // (photos saved before they could be shown whole stay cropped to squares, as they were)
+    editorMedia = ((ev && ev.media) || []).map(({ id, kind, name, fit, ratio }) => ({ id, kind, name, fit: !!fit && ratio > 0, ratio }));
     editorPoster = (ev && ev.poster && editorMedia.find((m) => m.id === ev.poster && m.kind === 'image')) || null;
+    editorPosterFit = !editorPoster || ev.posterFit === 'fit' ? 'fit' : 'fill';
+    if (editorPoster && ev.posterRatio > 0) editorPoster.ratio = ev.posterRatio;
     renderPosterField();
     let note = (ev && ev.note) || '';
     // links from before they lived in the text move into it, one per line, at the end
@@ -3257,6 +3490,7 @@
     unsavedThumbs.clear();
     editorMedia = [];
     editorPoster = null;
+    editorPosterFit = 'fit';
     noteBlocks = [];
     noteCaret = null;
     hideLinkTool();
@@ -3496,6 +3730,7 @@
     kindButtons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.kind === editorKind)));
     groups.end.box.hidden = !period;
     groups.start.box.querySelector('.when-head').hidden = !period;
+    els.form.classList.toggle('is-period', period); // (a period's start and end are laid out more tightly)
     // The "Default" button gives back what the event gets without its own
     // colour: its category's colour, or its type's default
     const cat = findCategory(editorCategory);
@@ -4326,7 +4561,8 @@
     if (!title) return;
     const data = { title, kind: editorKind };
     if (!(editorKind === 'period' ? readPeriod(data) : readMoment(data))) return;
-    if (editorColor) data.color = editorColor;    if (editorCategory) data.categoryId = editorCategory;
+    if (editorColor) data.color = editorColor;
+    if (editorCategory) data.categoryId = editorCategory;
     if (noteString().length > NOTE_MAX + 200) {
       showError(noteBox.querySelector('textarea'), `The notes are too long (up to ${NOTE_MAX.toLocaleString()} characters).`);
       return;
@@ -4343,14 +4579,35 @@
         savingEvent = false;
       }
     }
+    // A photo shown whole (Fit) needs to know its shape
+    const needShape = editorMedia.filter((m) => m.kind === 'image' && m.fit && !m.ratio);
+    if (editorPoster && editorPosterFit === 'fit' && !editorPoster.ratio && !needShape.includes(editorPoster)) needShape.push(editorPoster);
+    if (needShape.length) {
+      savingEvent = true;
+      try { await Promise.all(needShape.map(measureRatio)); } finally { savingEvent = false; }
+      editorMedia.forEach((m) => { if (m.fit && !m.ratio) m.fit = false; }); // (can't be shown whole)
+    }
     // The notes as one string, the photos and videos in the order they appear in it
     data.note = noteString().trim();
     const placed = noteBlocks.filter((b) => b.type === 'group').flatMap((b) => b.items);
     if (editorPoster) {
       if (!placed.includes(editorPoster)) placed.push(editorPoster);
       data.poster = editorPoster.id;
+      if (editorPosterFit === 'fit' && editorPoster.ratio) {
+        data.posterFit = 'fit';
+        data.posterRatio = Math.round(editorPoster.ratio * 10000) / 10000;
+      }
     }
-    if (placed.length) data.media = placed.map(({ id, kind, name }) => ({ id, kind, name }));
+    if (placed.length) {
+      data.media = placed.map((m) => {
+        const entry = { id: m.id, kind: m.kind, name: m.name };
+        if (m.kind === 'image' && m.fit && m.ratio) { // (shown whole, in this shape)
+          entry.fit = true;
+          entry.ratio = Math.round(m.ratio * 10000) / 10000;
+        }
+        return entry;
+      });
+    }
 
     let id = editingId;
     if (id) {
@@ -4575,7 +4832,8 @@
     const head = el('div', 'unit-head');
     const remove = el('button', 'unit-remove');
     remove.type = 'button';
-    remove.innerHTML = '&times;';
+    remove.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"><path d="M5 12h14"/></svg>';
+    remove.title = 'Remove this unit';
     head.append(el('span', 'unit-title'), remove);
     const fields = el('div', 'unit-fields');
     const field = el('label', 'unit-field');
@@ -4584,7 +4842,8 @@
     label.maxLength = MAX_LABEL;
     label.autocomplete = 'off';
     label.value = u.label;
-    field.append(el('span', null, 'Label'), label);
+    label.setAttribute('aria-label', 'Label: what is shown after a number');
+    field.append(el('span', 'unit-sizer'), label); // (the first sets the box's width: see refreshBuilder)
     const per = el('label', 'unit-per');
     const perInput = el('input', 'u-per');
     perInput.type = 'text';
@@ -4593,9 +4852,11 @@
     perInput.autocomplete = 'off';
     perInput.setAttribute('aria-label', 'How many of this unit make 1 of the unit above');
     perInput.value = u.per ? String(u.per) : '';
-    per.append(perInput, el('span', 'unit-per-text'));
+    const perField = el('span', 'unit-field');
+    perField.append(el('span', 'unit-sizer'), perInput);
+    per.append(el('span', 'unit-times', '×'), perField, el('span', 'unit-per-text')); // "days × 14 = fortnight"
     fields.append(field, per);
-    row.append(head, fields);
+    row.append(fields, head);
     return row;
   }
 
@@ -4634,8 +4895,6 @@
       .join(', ');
   }
 
-  // Grey suggestions in the empty boxes: a fortnight is 14 days, then something smaller
-  const LABEL_HINTS = ['fortnight', 'days', 'hours'];
   function refreshBuilder(commit = true) {
     const rows = [...els.unitList.children];
     const labelOf = (row) => row.querySelector('.u-label').value.trim();
@@ -4644,14 +4903,20 @@
       row.querySelector('.unit-title').textContent = `Unit ${i + 1}${where}`;
       row.querySelector('.unit-remove').hidden = rows.length === 1;
       row.querySelector('.unit-remove').setAttribute('aria-label', `Remove unit ${i + 1}`);
-      row.querySelector('.u-label').placeholder = LABEL_HINTS[Math.min(i, LABEL_HINTS.length - 1)];
+      const labelInput = row.querySelector('.u-label');
+      labelInput.placeholder = String.fromCharCode(97 + i); // a, b, c...
       row.querySelector('.unit-per').hidden = i === 0;
       if (i > 0) {
-        row.querySelector('.u-per').placeholder = i === 1 ? '14' : '24';
-        row.querySelector('.unit-per-text').textContent = `${labelOf(row) || 'this unit'} make 1 ${labelOf(rows[i - 1]) || 'the unit above'}`;
+        row.querySelector('.u-per').placeholder = '10';
+        row.querySelector('.unit-per-text').textContent = `= ${labelOf(rows[i - 1]) || String.fromCharCode(96 + i)}`; // (the unit above, or its grey a, b...)
       }
+      // The boxes are as wide as what's in them (or their grey suggestion)
+      row.querySelectorAll('.unit-field').forEach((f) => {
+        const input = f.querySelector('input');
+        f.querySelector('.unit-sizer').textContent = input.value || input.placeholder;
+      });
     });
-    els.unitAdd.disabled = els.unitAddBig.disabled = rows.length >= MAX_UNITS;
+    els.unitAdd.hidden = els.unitAddBig.hidden = rows.length >= MAX_UNITS;
     const result = readBuilder();
     els.unitNote.classList.toggle('bad', !!result.error && builderErrors);
     els.unitNote.textContent = result.error || describeUnits(result.units);
@@ -4702,35 +4967,786 @@
     state.format = b.dataset.format;
     save();
     updateControls();
+    showcase.select(b.dataset.format); // (the example below switches to that kind of timeline)
   }));
 
-  $('#example').addEventListener('click', () => {
-    const ex = [
-      ['Sputnik 1 launched', '1957-10-04', '', 'First artificial satellite in orbit.'],
-      ['Yuri Gagarin orbits Earth', '1961-04-12', '06:07', 'First human in space.'],
-      ['"We choose to go to the Moon"', '1962-09-12', '', 'Kennedy\'s speech at Rice University.'],
-      ['Project Gemini', '1965-03-23', '', 'Ten crewed flights practising spacewalks, docking and long missions.', '1966-11-15'],
-      ['Apollo 8 launches', '1968-12-21', '', 'First crewed mission to orbit the Moon.'],
-      ['Apollo 11 launches', '1969-07-16', '13:32', ''],
-      ['Apollo 11 lands on the Moon', '1969-07-20', '20:17', 'Armstrong and Aldrin land in the Sea of Tranquility.'],
-      ['Apollo 13 launches', '1970-04-11', '', '"Houston, we\'ve had a problem."'],
-      ['Apollo 17 launches', '1972-12-07', '', 'Last crewed Moon landing (so far).'],
-    ];
-    state.title = state.title || 'The Space Race';
-    state.format = 'datetime'; // the example uses full dates and times
-    state.started = true;
-    state.events = ex.map(([title, date, time, note, endDate], i) => ({
-      id: newId(),
-      created: Date.now() + i,
-      title,
-      ...(endDate ? { kind: 'period', date, time, endDate, endTime: '' } : { kind: 'moment', date, time, placement: 'start' }),
-      note,
-    }));
-    state.hidden = [];
+  // ---------- Examples ----------
+  // One example timeline for each kind of timeline. The home screen's preview
+  // (see SHOWCASE below) shows them in turn; clicking it opens that one.
+  //   at / to    the date ("2024-10-13", years can be negative: astronomical, so
+  //              1 BC is 0) or, on unitless and custom timelines, the number
+  //              (custom ones count in their smallest unit: inches)
+  //   time       "12:25", for date & time timelines (toTime: the end of a period)
+  //   tag        the name of one of the example's tags
+  //   poster     a picture in the examples folder, shown on the event's card
+  //   (an example's `images` is the script file that holds its pictures; see loadScriptOnce.
+  //   Its posters show whole, in their own shape; `posterFit: 'fill'` makes them cropped squares,
+  //   on the example or on one event.)
+  //   color      the event's own colour, instead of its tag's
+  const EXAMPLES = {
+    datetime: {
+      format: 'datetime',
+      images: 'examples/apollo.js',
+      title: 'Apollo 11 (UTC)',
+      tags: [['Going', '#2563eb'], ['On the Moon', '#ea580c'], ['Coming home', '#16a34a']],
+      events: [
+        { title: 'Launch', at: '1969-07-16', time: '13:32', tag: 'Going', poster: 'examples/apollo/launch.jpg', note: 'A Saturn V rocket lifts off from Kennedy Space Center in Florida.' },
+        { title: 'Eagle undocks', at: '1969-07-20', time: '17:44', tag: 'Going', poster: 'examples/apollo/undock.jpg', note: 'Armstrong and Aldrin, in the lunar module Eagle, separate from Collins in Columbia.' },
+        { title: 'Eagle lands', at: '1969-07-20', time: '20:17', tag: 'On the Moon', poster: 'examples/apollo/lands.jpg', posterFit: 'fill', note: '"The Eagle has landed." They touch down in the Sea of Tranquility.' },
+        { title: 'Moonwalk', at: '1969-07-21', time: '02:39', to: '1969-07-21', toTime: '05:11', tag: 'On the Moon', color: '#b91c1c', poster: 'examples/apollo/moonwalk.jpg', note: 'The two astronauts spend about two and a half hours outside.' },
+        { title: 'First step', at: '1969-07-21', time: '02:56', tag: 'On the Moon', poster: 'examples/apollo/first-step.jpg', note: '"That\'s one small step for man, one giant leap for mankind."' },
+        { title: 'Aldrin joins him', at: '1969-07-21', time: '03:15', tag: 'On the Moon', poster: 'examples/apollo/aldrin.jpg', posterFit: 'fill', note: 'Aldrin steps onto the surface, about 19 minutes after Armstrong.' },
+        { title: 'Eagle lifts off', at: '1969-07-21', time: '17:54', tag: 'Coming home', poster: 'examples/apollo/liftoff.jpg', note: 'The top half of Eagle launches to meet Columbia again.' },
+        { title: 'Splashdown', at: '1969-07-24', time: '16:50', tag: 'Coming home', poster: 'examples/apollo/splashdown.jpg', note: 'Apollo 11 lands in the Pacific Ocean, where a navy ship picks up the crew.' },
+      ],
+    },
+    year: {
+      format: 'year',
+      images: 'examples/history.js',
+      title: 'A brief history',
+      tags: [['Cosmos', '#9333ea'], ['Civilisations', '#ea580c'], ['Wars', '#dc2626'], ['Technology', '#2563eb']],
+      events: [
+        { title: 'The Big Bang', at: '-13799999999', tag: 'Cosmos', poster: 'examples/history/big-bang.jpg', note: 'The universe begins, about 13.8 billion years ago. (Pictured: the oldest light in the universe, mapped by NASA\'s WMAP.)' },
+        { title: 'The Earth forms', at: '-4539999999', tag: 'Cosmos', poster: 'examples/history/earth.jpg', note: 'About 4.54 billion years ago.' },
+        { title: 'Dinosaurs go extinct', at: '-65999999', tag: 'Cosmos', poster: 'examples/history/dinosaurs.jpg', note: 'An asteroid hits the Earth about 66 million years ago, ending the age of the dinosaurs.' },
+        { title: 'Ancient Egypt', at: '-3099', to: '-29', tag: 'Civilisations', poster: 'examples/history/egypt.jpg', note: 'From the first pharaohs to the death of Cleopatra.\n\nPhoto: Ricardo Liberato, CC BY-SA 2.0' },
+        { title: 'Roman Empire', at: '-26', to: '476', tag: 'Civilisations', poster: 'examples/history/rome.jpg', note: 'Founded under Augustus in 27 BC. The western empire falls in AD 476. (Pictured: gladiators on a Roman floor mosaic from Zliten, in Libya.)' },
+        { title: 'World War I', at: '1914', to: '1918', tag: 'Wars', poster: 'examples/history/ww1.jpg' },
+        { title: 'World War II', at: '1939', to: '1945', tag: 'Wars', poster: 'examples/history/ww2.jpg' },
+        { title: 'Moon landing', at: '1969', tag: 'Technology', poster: 'examples/history/moon-landing.jpg', note: 'Apollo 11 puts the first people on the Moon.' },
+        { title: 'The internet is born', at: '1983', tag: 'Technology', poster: 'examples/history/internet.jpg', note: 'ARPANET switches to TCP/IP, the foundation of today\'s internet. (Pictured: one of ARPANET\'s routers, an Interface Message Processor.)\n\nPhoto: ArnoldReinhold, CC BY 4.0' },
+      ],
+    },
+    calendar: {
+      format: 'calendar',
+      images: 'examples/sky.js',
+      title: 'A year in the sky',
+      tags: [['Sun & Earth', '#ca8a04'], ['Meteor showers', '#4f46e5']],
+      events: [
+        { title: 'March equinox', at: '2000-03-20', tag: 'Sun & Earth', poster: 'examples/sky/march-equinox.svg', note: 'Day and night are almost equally long everywhere. Neither pole leans toward the Sun.' },
+        { title: 'Summer solstice', at: '2000-06-21', tag: 'Sun & Earth', poster: 'examples/sky/summer-solstice.svg', note: 'The longest day of the year in the northern hemisphere (the shortest in the southern). The North Pole leans toward the Sun.' },
+        { title: 'Perseid meteor shower', at: '2000-07-17', to: '2000-08-24', tag: 'Meteor showers', poster: 'examples/sky/perseids.jpg', note: 'Peaks around 12 August.' },
+        { title: 'September equinox', at: '2000-09-22', tag: 'Sun & Earth', poster: 'examples/sky/september-equinox.svg', note: 'Day and night are almost equally long everywhere. Neither pole leans toward the Sun.' },
+        { title: 'Orionid meteor shower', at: '2000-10-02', to: '2000-11-07', tag: 'Meteor showers', poster: 'examples/sky/orionids.jpg', note: 'Peaks around 21 October.\n\nPhoto: Jim Vajda, CC BY 2.0' },
+        { title: 'Geminid meteor shower', at: '2000-12-04', to: '2000-12-17', tag: 'Meteor showers', poster: 'examples/sky/geminids.jpg', note: 'Peaks around 14 December.\n\nPhoto: John Flannery, CC BY-SA 2.0' },
+        { title: 'Winter solstice', at: '2000-12-21', tag: 'Sun & Earth', poster: 'examples/sky/winter-solstice.svg', note: 'The shortest day of the year in the northern hemisphere (the longest in the southern). The North Pole leans away from the Sun.' },
+      ],
+    },
+    number: {
+      format: 'number',
+      images: 'examples/flags.js',
+      title: 'Countries population',
+      tags: [],
+      events: [
+        { title: 'Vatican City', at: 501, poster: 'examples/flags/va.svg', note: 'About 500 people (2023, approximate): the smallest country in the world.' },
+        { title: 'Liechtenstein', at: 39000, poster: 'examples/flags/li.svg', note: 'About 39,000 people (2023, approximate).' },
+        { title: 'Iceland', at: 400000, poster: 'examples/flags/is.svg', note: 'About 400,000 people (2023, approximate).' },
+        { title: 'Norway', at: 5500000, poster: 'examples/flags/no.svg', note: 'About 5.5 million people (2023, approximate).' },
+        { title: 'Australia', at: 26500000, poster: 'examples/flags/au.svg', note: 'About 26.5 million people (2023, approximate).' },
+        { title: 'United Kingdom', at: 68000000, poster: 'examples/flags/gb.svg', note: 'About 68 million people (2023, approximate).' },
+        { title: 'Japan', at: 123000000, poster: 'examples/flags/jp.svg', note: 'About 123 million people (2023, approximate).' },
+        { title: 'Brazil', at: 216000000, poster: 'examples/flags/br.svg', note: 'About 216 million people (2023, approximate).' },
+        { title: 'United States', at: 335000000, poster: 'examples/flags/us.svg', note: 'About 335 million people (2023, approximate).' },
+        { title: 'India', at: 1428000000, poster: 'examples/flags/in.svg', note: 'About 1.43 billion people (2023, approximate).' },
+      ],
+    },
+    custom: {
+      format: 'custom',
+      images: 'examples/people.js',
+      title: 'Famous peoples heights',
+      units: [["'", null], ['"', 12]], // feet and inches
+      tags: [['Entertainment', '#db2777'], ['Politics', '#4f46e5'], ['Sport', '#16a34a'], ['Record', '#ca8a04']],
+      events: [
+        { title: 'Peter Dinklage', at: 53, tag: 'Entertainment', poster: 'examples/people/dinklage.jpg', note: 'Actor.\n\nPhoto: Gage Skidmore, CC BY-SA 3.0' },
+        { title: 'Dolly Parton', at: 60, tag: 'Entertainment', poster: 'examples/people/parton.jpg', note: 'Singer and songwriter.' },
+        { title: 'Tom Cruise', at: 67, tag: 'Entertainment', poster: 'examples/people/cruise.jpg', note: 'Actor.\n\nPhoto: Kevin Paul, CC BY 4.0' },
+        { title: 'Barack Obama', at: 73, tag: 'Politics', poster: 'examples/people/obama.jpg', note: 'The 44th president of the United States.' },
+        { title: 'Michael Jordan', at: 78, tag: 'Sport', poster: 'examples/people/jordan.jpg', note: 'Basketball player.\n\nPhoto: Steve Lipofsky, CC BY-SA 3.0' },
+        { title: 'Shaquille O\'Neal', at: 85, tag: 'Sport', poster: 'examples/people/oneal.jpg', note: 'Basketball player.\n\nPhoto: Keith Allison, CC BY-SA 2.0' },
+        { title: 'Robert Wadlow', at: 107, tag: 'Record', poster: 'examples/people/wadlow.jpg', note: 'The tallest person in recorded history. (Pictured with his father.)' },
+      ],
+    },
+  };
+
+  // An example's pictures come in a script file of their own (examples/<name>.js, made by
+  // tools/make-example-images.ps1) that puts them in window.TM_IMAGES as data addresses.
+  // A script loads even when the page is opened straight from a folder, where browsers
+  // won't let a page read other files. It's only loaded when that example is opened.
+  const loadedScripts = new Map();
+  function loadScriptOnce(path) {
+    if (!loadedScripts.has(path)) {
+      loadedScripts.set(path, new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = new URL(path, APP_URL).href;
+        script.onload = resolve;
+        script.onerror = () => { loadedScripts.delete(path); reject(new Error('missing')); };
+        document.head.appendChild(script);
+      }));
+    }
+    return loadedScripts.get(path);
+  }
+
+  // One of those pictures, as a Blob
+  function exampleImage(path) {
+    const uri = window.TM_IMAGES && window.TM_IMAGES[path];
+    if (!uri) throw new Error('missing');
+    const comma = uri.indexOf(',');
+    const bytes = Uint8Array.from(atob(uri.slice(comma + 1)), (c) => c.charCodeAt(0));
+    return new Blob([bytes], { type: uri.slice(5, uri.indexOf(';')) });
+  }
+
+  // Replaces whatever is on the home screen with an example, as if it had been opened
+  let loadingExample = false;
+  async function loadExample(key) {
+    const ex = EXAMPLES[key];
+    if (!ex || loadingExample) return;
+    loadingExample = true;
+    try {
+      // The events' posters first: small pictures from next to the page, kept in the
+      // browser like any photo added to an event. If they can't be had (the page is
+      // offline, or the browser can't store them), the example opens without them.
+      const posters = new Map();
+      if (storageOk && ex.images) {
+        try { await loadScriptOnce(ex.images); } catch (err) { /* the pictures aren't there: no posters */ }
+        await Promise.all(ex.events.filter((e) => e.poster).map(async (e) => {
+          try {
+            const blob = exampleImage(e.poster);
+            const id = newId();
+            await mediaPut(id, blob);
+            let ratio = null; // (its shape, for showing it whole)
+            try {
+              const { img, url } = await loadImageElement(blob);
+              if (img.naturalHeight) ratio = img.naturalWidth / img.naturalHeight;
+              URL.revokeObjectURL(url);
+            } catch (err) { /* shown as a square */ }
+            posters.set(e, { id, kind: 'image', name: `${e.title}${e.poster.includes('/flags/') ? ' (flag)' : ''}`, ratio });
+          } catch (err) { /* no poster for this one */ }
+        }));
+      }
+      openExample(ex, posters);
+    } finally {
+      loadingExample = false;
+    }
+  }
+
+  function openExample(ex, posters) {
+    const tagIds = new Map();
+    const categories = ex.tags.map(([name, color]) => {
+      const id = newId();
+      tagIds.set(name, id);
+      return { id, name, color };
+    });
+    const isNumber = ex.format === 'number' || ex.format === 'custom';
+    const now = Date.now();
+    const events = ex.events.map((e, i) => {
+      const period = e.to !== undefined;
+      const out = { id: newId(), created: now + i, title: e.title, kind: period ? 'period' : 'moment' };
+      if (isNumber) {
+        out.num = e.at;
+        if (period) out.endNum = e.to;
+      } else {
+        out.date = e.at;
+        out.time = e.time || '';
+        if (period) { out.endDate = e.to; out.endTime = e.toTime || ''; } else out.placement = 'start';
+      }
+      out.note = e.note || '';
+      if (e.tag) out.categoryId = tagIds.get(e.tag);
+      if (e.color) out.color = e.color;
+      const poster = posters.get(e);
+      if (poster) {
+        out.media = [{ id: poster.id, kind: poster.kind, name: poster.name }];
+        out.poster = poster.id;
+        if ((e.posterFit || ex.posterFit) !== 'fill' && poster.ratio) { // (shown whole, unless the example or event asks for a square)
+          out.posterFit = 'fit';
+          out.posterRatio = Math.round(poster.ratio * 10000) / 10000;
+        }
+      }
+      return out;
+    });
+    stopStepping();
+    Object.assign(state, { title: ex.title, format: ex.format, started: true, zoom: 1, hidden: [], categories, events });
+    if (ex.units) {
+      state.custom = { units: ex.units.map(([label, per]) => ({ label, per })) };
+      builderBuilt = false; // (the units builder is rebuilt from these units next time it shows)
+    }
+    pinned = [];
+    expandedId = null;
+    openCategoryId = null;
+    colorOpenId = null;
+    closePicker();
     save();
-    render();
+    els.title.value = state.title;
+    window.scrollTo(0, 0);
+    render(null);
     collectMedia(true);
-  });
+  }
+
+  // ---------- The home screen's preview of the examples ----------
+  // A small animated sketch of each kind of timeline, one after the other
+  // (every 10 seconds, or pick one with the tabs below). Each is made of a few
+  // "views" of an axis: moving on to the next one is a zoom, like zooming in
+  // on the real thing. Clicking the preview opens that example.
+  //   v / end        where an event is (and where a period ends) on the view's
+  //                  axis, between min and max
+  //   id             an event that is in several views keeps the same dot through
+  //                  the zoom (the first view to have it decides when it appears)
+  //   fan            (with an id) a crowd of dots at one spot on a wide view spread out in
+  //                  order, this many steps to the right, and close up again as it zooms
+  //                  (the scene's fanRange: the widths in view where it has closed / is wide open)
+  //   zoomV          where on the axis the zoom to the next view heads
+  //   side, when, name   an event with these gets a card (up or down from the axis)
+  //   img            a picture on the card (with the scene's imgDir and imgExt: a file name;
+  //                  imgRatio, width over height, shows it whole in that shape, else it's a square;
+  //                  an event's own imgRatio is for a picture whose shape differs from the rest)
+  //   at             when (ms into the scene) the zoom into the view starts
+  //   rulerUnit      (with 'num') show the ticks in this unit: 1e6 for 500M, 1,000M, ...
+  //   ruler          'num' | 'year' | 'time': the scene's ticks are made for the part in
+  //                  view, so they keep changing as it zooms (without it, a view's
+  //                  own `ticks`: [value, label, hide on narrow screens?] stay put)
+  const utc = (y, m, d, h = 0, mi = 0) => Date.UTC(y, m - 1, d, h, mi);
+  const SC_BLUE = '#2563eb', SC_ORANGE = '#ea580c', SC_RED = '#dc2626', SC_GREEN = '#16a34a';
+  const SC_DARKRED = '#b91c1c', SC_PURPLE = '#9333ea', SC_PINK = '#db2777', SC_GOLD = '#ca8a04', SC_INDIGO = '#4f46e5';
+  const monthTicks = Array.from({ length: 12 }, (_, i) => [utc(2000, i + 1, 1), ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][i], i % 2 === 1]);
+  const SHOWCASE = [
+    {
+      key: 'datetime', kind: 'Date & time', title: 'Apollo 11', ruler: 'time', fanRange: [5e7, 2e8],
+      imgDir: 'examples/apollo/', imgExt: '.jpg', // (each picture is shown whole, in its own shape)
+      views: [
+        {
+          // the whole mission, nine days; the landing and the moonwalk are all in one small stretch of it
+          at: 0, start: 300, step: 500, min: utc(1969, 7, 15, 18), max: utc(1969, 7, 25, 6), zoomV: utc(1969, 7, 21, 2, 56),
+          events: [
+            { id: 'launch', v: utc(1969, 7, 16, 13, 32), color: SC_BLUE, side: 'up', when: '16 Jul', name: 'Launch', img: 'launch', imgRatio: 0.8 },
+            { id: 'undock', v: utc(1969, 7, 20, 17, 44), color: SC_BLUE },
+            { id: 'landing', v: utc(1969, 7, 20, 20, 17), color: SC_ORANGE, fan: 1, side: 'down', when: '20 Jul', name: 'Eagle lands', img: 'lands' },
+            { id: 'moonwalk', v: utc(1969, 7, 21, 2, 39), end: utc(1969, 7, 21, 5, 11), color: SC_DARKRED, fan: 2 },
+            { id: 'step', v: utc(1969, 7, 21, 2, 56), color: SC_ORANGE, fan: 3 },
+            { id: 'aldrin', v: utc(1969, 7, 21, 3, 15), color: SC_ORANGE, fan: 4 },
+            { id: 'liftoff', v: utc(1969, 7, 21, 17, 54), color: SC_GREEN },
+            { id: 'splash', v: utc(1969, 7, 24, 16, 50), color: SC_GREEN, side: 'up', when: '24 Jul', name: 'Splashdown', img: 'splashdown', imgRatio: 1.3 },
+          ],
+        },
+        {
+          // the landing day
+          at: 3200, start: 300, step: 400, min: utc(1969, 7, 20, 16, 30), max: utc(1969, 7, 21, 6, 0), zoomV: utc(1969, 7, 21, 2, 56),
+          events: [
+            { id: 'undock', v: utc(1969, 7, 20, 17, 44), color: SC_BLUE, side: 'up', when: '17:44', name: 'Eagle undocks', img: 'undock', imgRatio: 1.11 },
+            { id: 'landing', v: utc(1969, 7, 20, 20, 17), color: SC_ORANGE, fan: 1, side: 'down', when: '20:17', name: 'Eagle lands', img: 'lands' },
+            { id: 'moonwalk', v: utc(1969, 7, 21, 2, 39), end: utc(1969, 7, 21, 5, 11), color: SC_DARKRED, fan: 2, side: 'down', when: '02:39 – 05:11', name: 'Moonwalk', img: 'moonwalk', imgRatio: 1 },
+            { id: 'step', v: utc(1969, 7, 21, 2, 56), color: SC_ORANGE, fan: 3, side: 'up', when: '02:56', name: 'First step', img: 'first-step', imgRatio: 1 },
+            { id: 'aldrin', v: utc(1969, 7, 21, 3, 15), color: SC_ORANGE, fan: 4 },
+          ],
+        },
+        {
+          // the moonwalk, minute by minute
+          at: 6800, start: 300, step: 550, min: utc(1969, 7, 21, 2, 20), max: utc(1969, 7, 21, 5, 30),
+          events: [
+            { id: 'moonwalk', v: utc(1969, 7, 21, 2, 39), end: utc(1969, 7, 21, 5, 11), color: SC_DARKRED, fan: 2 },
+            { id: 'step', v: utc(1969, 7, 21, 2, 56), color: SC_ORANGE, fan: 3, side: 'up', when: '02:56', name: 'First step', img: 'first-step', imgRatio: 1 },
+            { id: 'aldrin', v: utc(1969, 7, 21, 3, 15), color: SC_ORANGE, fan: 4, side: 'down', when: '03:15', name: 'Aldrin follows', img: 'aldrin' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'year', kind: 'Years', title: 'A brief history', ruler: 'year',
+      imgDir: 'examples/history/', imgExt: '.jpg',
+      views: [
+        {
+          at: 0, start: 300, step: 550, min: -14.5e9, max: 2e9, zoomV: 0,
+          events: [
+            { v: -13.8e9, color: SC_PURPLE, side: 'up', when: '13.8 billion years ago', name: 'Big Bang', img: 'big-bang', imgRatio: 2 },
+            { v: -4.54e9, color: SC_PURPLE, side: 'down', when: '4.5 billion years ago', name: 'Earth forms', img: 'earth', imgRatio: 1 },
+            { v: -66e6, color: SC_PURPLE, side: 'up', when: '66 million years ago', name: 'Dinosaurs go extinct', img: 'dinosaurs', imgRatio: 1.25 },
+            // (the rest of history is already there, all in the last sliver of the axis, waiting to be zoomed into)
+            { id: 'egypt', v: -3099, end: -28, color: SC_ORANGE, fan: 1 },
+            { id: 'rome', v: -26, end: 477, color: SC_ORANGE, fan: 2 },
+            { id: 'ww1', v: 1914, end: 1919, color: SC_RED, fan: 3 },
+            { id: 'ww2', v: 1939, end: 1946, color: SC_RED, fan: 4 },
+            { id: 'moon', v: 1969, color: SC_BLUE, fan: 5 },
+            { id: 'net', v: 1983, color: SC_BLUE, fan: 6 },
+          ],
+        },
+        {
+          at: 3100, start: 300, step: 550, min: -3400, max: 2300, zoomV: 1969,
+          events: [
+            { id: 'egypt', v: -3099, end: -28, color: SC_ORANGE, side: 'up', when: '3100 – 30 BC', name: 'Ancient Egypt', img: 'egypt', imgRatio: 1.5 },
+            { id: 'rome', v: -26, end: 477, color: SC_ORANGE, side: 'down', when: '27 BC – AD 476', name: 'Roman Empire', img: 'rome', imgRatio: 1.28 },
+            { id: 'ww1', v: 1914, end: 1919, color: SC_RED },
+            { id: 'ww2', v: 1939, end: 1946, color: SC_RED },
+            { id: 'moon', v: 1969, color: SC_BLUE },
+            { id: 'net', v: 1983, color: SC_BLUE },
+          ],
+        },
+        {
+          at: 6300, start: 300, step: 500, min: 1890, max: 2030,
+          events: [
+            { id: 'ww1', v: 1914, end: 1919, color: SC_RED, side: 'up', when: '1914 – 1918', name: 'World War I', img: 'ww1', imgRatio: 1.31 },
+            { id: 'ww2', v: 1939, end: 1946, color: SC_RED, side: 'down', when: '1939 – 1945', name: 'World War II', img: 'ww2', imgRatio: 1.24 },
+            { id: 'moon', v: 1969, color: SC_BLUE, side: 'up', when: '1969', name: 'Moon landing', img: 'moon-landing', imgRatio: 1 },
+            { id: 'net', v: 1983, color: SC_BLUE, side: 'down', when: '1983', name: 'The internet is born', img: 'internet', imgRatio: 0.75 },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'calendar', kind: 'Calendar year', title: 'A year in the sky',
+      imgDir: 'examples/sky/', imgExt: '.jpg', // (the seasons are drawings: .svg, set on them)
+      views: [
+        {
+          at: 0, step: 900, min: utc(2000, 1, 1), max: utc(2000, 12, 31, 23, 59),
+          ticks: monthTicks,
+          events: [
+            { v: utc(2000, 3, 20), color: SC_GOLD, side: 'up', when: '20 Mar', name: 'March equinox', img: 'march-equinox.svg', imgRatio: 4 / 3 },
+            { v: utc(2000, 6, 21), color: SC_GOLD, side: 'down', when: '21 Jun', name: 'Summer solstice', opt: true, img: 'summer-solstice.svg', imgRatio: 4 / 3 },
+            { v: utc(2000, 7, 17), end: utc(2000, 8, 24), color: SC_INDIGO, side: 'up', when: '17 Jul – 24 Aug', name: 'Perseid meteors', img: 'perseids', imgRatio: 1 },
+            { v: utc(2000, 9, 22), color: SC_GOLD },
+            { v: utc(2000, 10, 2), end: utc(2000, 11, 7), color: SC_INDIGO },
+            { v: utc(2000, 12, 4), end: utc(2000, 12, 17), color: SC_INDIGO },
+            { v: utc(2000, 12, 21), color: SC_GOLD, side: 'down', when: '21 Dec', name: 'Winter solstice', img: 'winter-solstice.svg', imgRatio: 4 / 3 },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'number', kind: 'Unitless', title: 'Countries population', ruler: 'num', rulerUnit: 1e6,
+      imgDir: 'examples/flags/', imgExt: '.svg', imgRatio: 4 / 3, // (the pictures are shown whole)
+      views: [
+        {
+          at: 0, start: 300, step: 500, min: -60e6, max: 1600e6, zoomV: 60e6,
+          events: [
+            { id: 'vatican', v: 501 }, { id: 'liechtenstein', v: 39e3 },
+            { id: 'iceland', v: 0.4e6 }, { id: 'norway', v: 5.5e6 }, { id: 'australia', v: 26.5e6 },
+            { id: 'uk', v: 68e6 }, { id: 'japan', v: 123e6 }, { id: 'brazil', v: 216e6 },
+            { id: 'usa', v: 335e6, side: 'down', when: '335 million', name: 'United States', img: 'us' },
+            { id: 'india', v: 1428e6, side: 'up', when: '1,428 million', name: 'India', img: 'in' },
+          ],
+        },
+        {
+          at: 3400, start: 300, step: 450, min: -8e6, max: 140e6, zoomV: 501,
+          events: [
+            { id: 'iceland', v: 0.4e6 },
+            { id: 'norway', v: 5.5e6, side: 'down', when: '5.5 million', name: 'Norway', img: 'no' },
+            { id: 'australia', v: 26.5e6, side: 'up', when: '26.5 million', name: 'Australia', img: 'au' },
+            { id: 'uk', v: 68e6, side: 'down', when: '68 million', name: 'United Kingdom', img: 'gb' },
+            { id: 'japan', v: 123e6, side: 'up', when: '123 million', name: 'Japan', img: 'jp' },
+          ],
+        },
+        {
+          at: 6500, start: 300, step: 500, min: -6000, max: 60000,
+          events: [
+            { id: 'vatican', v: 501, side: 'up', when: '501 people', name: 'Vatican City', img: 'va' },
+            { id: 'liechtenstein', v: 39e3, side: 'down', when: '39,000 people', name: 'Liechtenstein', img: 'li' },
+          ],
+        },
+      ],
+    },
+    {
+      key: 'custom', kind: 'Custom', title: 'Famous peoples heights',
+      imgDir: 'examples/people/', imgExt: '.jpg', imgRatio: 0.77, // (portraits, about 3:4)
+      views: [
+        {
+          at: 0, step: 800, min: 46, max: 112,
+          ticks: [[48, '4\''], [60, '5\''], [72, '6\''], [84, '7\''], [96, '8\''], [108, '9\'']],
+          events: [
+            { v: 53, color: SC_PINK, side: 'up', when: '4\'5"', name: 'Peter Dinklage', img: 'dinklage' },
+            { v: 60, color: SC_PINK },
+            { v: 67, color: SC_PINK, side: 'down', when: '5\'7"', name: 'Tom Cruise', img: 'cruise' },
+            { v: 73, color: SC_INDIGO },
+            { v: 78, color: SC_GREEN, side: 'up', when: '6\'6"', name: 'Michael Jordan', opt: true, img: 'jordan', imgRatio: 0.75 },
+            { v: 85, color: SC_GREEN, side: 'down', when: '7\'1"', name: 'Shaquille O\'Neal', img: 'oneal' },
+            { v: 107, color: SC_GOLD, side: 'up', when: '8\'11"', name: 'Robert Wadlow', img: 'wadlow', imgRatio: 0.61 },
+          ],
+        },
+      ],
+    },
+  ];
+
+  const showcase = (() => {
+    const root = $('#showcase');
+    const cardBtn = $('#sc-card');
+    const stack = $('#sc-stack');
+    const tabsBox = $('#sc-tabs');
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const CYCLE = 10000;
+    const pct = (view, v) => ((v - view.min) / (view.max - view.min)) * 100;
+
+    // Where things are drawn depends on the part of the axis in view, which
+    // moves from one view's range to the next as the scene zooms in. Anything
+    // far outside is kept near the edge: it can't be seen, and huge numbers
+    // would only upset the layout.
+    const far = (p) => Math.max(-500, Math.min(1500, p));
+    function place(item, vp) {
+      const w = vp.max - vp.min;
+      const x = far(((item.v - vp.min) / w) * 100);
+      item.node.style.setProperty('--x', `${x}%`);
+      // A crowd of things that are all at the same spot at this scale (the whole
+      // of history on a 14-billion-year axis) is fanned out a little, in order, so
+      // each can be seen; the fan closes as the zoom brings them apart for real
+      if (item.fan) {
+        const [gone, full] = item.fanRange || [3e4, 1e7]; // (the widths in view at which the fan has closed, and is wide open)
+        const f = Math.max(0, Math.min(1, (Math.log10(w) - Math.log10(gone)) / (Math.log10(full) - Math.log10(gone))));
+        item.node.style.setProperty('--fan', `${item.fan * 8 * f}px`);
+      }
+      if (item.end !== undefined) item.node.style.setProperty('--w', `${far(((item.end - vp.min) / w) * 100) - x}%`);
+    }
+    // The range in view part-way (e from 0 to 1) through a zoom from view a to
+    // view b that heads for the value z: the width changes by the same factor
+    // each moment (like zooming the real thing), while z slides to where it
+    // ends up in b.
+    function viewportBetween(a, b, z, e) {
+      const wa = a.max - a.min;
+      const wb = b.max - b.min;
+      const w = wa * (wb / wa) ** e;
+      const fa = (z - a.min) / wa;
+      const fb = (z - b.min) / wb;
+      const min = z - (fa + (fb - fa) * e) * w;
+      return { min, max: min + w };
+    }
+
+    // --- The ruler of a zooming scene ---
+    // The ticks along the axis are made for whatever part of it is in view, so
+    // as the scene zooms they keep changing, like the real timeline's: coarser
+    // ones fade out as finer ones fade in. kind: 'num' (plain numbers), 'year'
+    // (years, BC and AD) or 'time' (dates and times, UTC).
+    const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const TIME_UNITS = [
+      { ms: 5 * MIN }, { ms: 15 * MIN }, { ms: 30 * MIN }, { ms: HOUR }, { ms: 3 * HOUR }, { ms: 6 * HOUR }, { ms: 12 * HOUR },
+      { ms: DAY }, { ms: 2 * DAY }, { ms: 7 * DAY }, { months: 1, ms: 30.4 * DAY }, { months: 3, ms: 91 * DAY }, { months: 6, ms: 182 * DAY },
+    ];
+    // The first 1, 2, 5 or 10 times a power of ten that's at least `raw`
+    const niceStep = (raw) => {
+      const p = 10 ** Math.floor(Math.log10(raw));
+      return [1, 2, 5, 10].map((m) => m * p).find((s) => s >= raw * 0.999);
+    };
+    const shortYears = (n) => {
+      if (n >= 1e9) return `${+(n / 1e9).toFixed(2)}B`;
+      if (n >= 1e6) return `${+(n / 1e6).toFixed(2)}M`;
+      return n < 10000 ? String(n) : n.toLocaleString('en');
+    };
+    const pad2 = (n) => String(n).padStart(2, '0');
+
+    // -> [{ key, v, label }] (a key says which tick it is, so it can stay as the view moves)
+    function rulerTicks(kind, vp, inUnitOf) {
+      const w = vp.max - vp.min;
+      const out = [];
+      if (kind === 'num') {
+        const step = niceStep(w / 6);
+        for (let k = Math.ceil(vp.min / step); k * step <= vp.max; k++) {
+          const v = k * step;
+          // (a scene can ask for its numbers in millions: 500M, 1,000M; otherwise they're shortened as on the real axis)
+          const unit = inUnitOf && step >= inUnitOf / 10 ? { size: inUnitOf, letter: 'M' } : numberAbbreviation(step, vp.min, vp.max);
+          out.push({ key: `n${step}:${k}`, v, label: unit ? inUnit(v, unit) : (+v.toFixed(6)).toLocaleString('en') });
+        }
+      } else if (kind === 'year') {
+        // (years as people say them: no year 0, so the numbers either side of it are shifted)
+        const toS = (v) => (v <= 0 ? v - 1 : v);
+        const step = niceStep((toS(vp.max) - toS(vp.min)) / 6);
+        for (let k = Math.ceil(toS(vp.min) / step); k * step <= toS(vp.max); k++) {
+          const s = k * step;
+          if (s === 0) continue;
+          out.push({ key: `y${step}:${k}`, v: s < 0 ? s + 1 : s, label: s < 0 ? `${shortYears(-s)} BC` : s < 1000 ? `AD ${s}` : shortYears(s) });
+        }
+      } else if (kind === 'time') {
+        let ui = TIME_UNITS.findIndex((u) => w / u.ms <= 7); // (the smallest unit that gives at most seven ticks)
+        if (ui < 0) ui = TIME_UNITS.length - 1;
+        const unit = TIME_UNITS[ui];
+        if (unit.months) {
+          const d = new Date(vp.min);
+          let y = d.getUTCFullYear();
+          let m = Math.floor(d.getUTCMonth() / unit.months) * unit.months;
+          for (let t = Date.UTC(y, m, 1); t <= vp.max; t = Date.UTC(y, m, 1)) {
+            if (t >= vp.min) out.push({ key: `t${ui}:${t}`, v: t, label: `${MONTH_NAMES[m]} ${y}` });
+            m += unit.months;
+            if (m >= 12) { y += Math.floor(m / 12); m %= 12; }
+          }
+        } else {
+          for (let k = Math.ceil(vp.min / unit.ms); k * unit.ms <= vp.max; k++) {
+            const t = k * unit.ms;
+            const d = new Date(t);
+            let label = '';
+            if (t % DAY === 0) label = `${d.getUTCDate()} ${MONTH_NAMES[d.getUTCMonth()]}`;
+            else if (unit.ms >= HOUR || t % HOUR === 0) label = `${pad2(d.getUTCHours())}:${pad2(d.getUTCMinutes())}`;
+            out.push({ key: `t${ui}:${t}`, v: t, label });
+          }
+        }
+      }
+      return out;
+    }
+
+    // Brings a scene's ruler up to date with the part in view: new ticks fade
+    // in (when `fade`; otherwise they wait to be shown), ticks that have gone
+    // fade out, and all of them sit where they belong
+    function syncRuler(scene, vp, fade) {
+      if (!scene.ruler) return;
+      const wanted = new Map(rulerTicks(scene.ruler, vp, scene.rulerUnit).map((t) => [t.key, t]));
+      for (const [key, tick] of scene.tickMap) {
+        if (wanted.has(key) || tick.dying) continue;
+        tick.dying = true;
+        tick.node.classList.remove('on');
+        tick.timer = setTimeout(() => { tick.node.remove(); scene.tickMap.delete(key); }, 500);
+      }
+      for (const [key, t] of wanted) {
+        let tick = scene.tickMap.get(key);
+        if (!tick) {
+          const node = el('span', 'sc-tick');
+          if (t.label) node.append(el('span', 'sc-tick-label', t.label));
+          scene.rulerEl.append(node);
+          tick = { node, v: t.v, dying: false, key };
+          scene.tickMap.set(key, tick);
+          if (fade) { void node.offsetWidth; node.classList.add('on'); }
+        } else if (tick.dying) {
+          clearTimeout(tick.timer);
+          tick.dying = false;
+          if (fade) tick.node.classList.add('on');
+        }
+      }
+      for (const tick of scene.tickMap.values()) place(tick, vp);
+    }
+
+    // Every scene is built once, and played by switching classes on and off
+    const scenes = SHOWCASE.map((scene) => {
+      const sceneEl = el('span', 'sc-scene');
+      const head = el('span', 'sc-head');
+      head.append(el('span', 'sc-kind', scene.kind), el('span', 'sc-title', scene.title));
+      const stage = el('span', 'sc-stage');
+      const frame = el('span', 'sc-frame'); // (the axis and what's on it, in from the edges)
+      const axis = el('span', 'sc-axis');
+      const rulerEl = el('span', 'sc-ruler');
+      // An event with an id keeps its dot (or bar) through the zoom: it's drawn
+      // once, here, where it never fades out, and appears with the first view
+      // that has it (later views just add their cards)
+      const marksEl = el('span', 'sc-marks');
+      const sharedMarks = new Map();
+      const sharedItems = [];
+      const thumbs = []; // the pictures on the scene's cards
+      frame.append(axis, rulerEl, marksEl);
+      const views = scene.views.map((view, vi) => {
+        const layer = el('span', 'sc-view');
+        const parts = []; // what appears, in order: { node, delay (ms after the view comes in) }
+        const items = []; // what moves with the zoom: { node, v, end? }
+        const add = (node, delay, v, end, fan) => {
+          layer.append(node);
+          parts.push({ node, delay });
+          items.push({ node, v, end, fan, fanRange: scene.fanRange });
+        };
+        (view.ticks || []).forEach(([v, label, minor], i) => {
+          const tick = el('span', minor ? 'sc-tick minor' : 'sc-tick');
+          if (label) tick.append(el('span', 'sc-tick-label', label));
+          add(tick, 120 + i * 50, v);
+        });
+        let t = view.start || 500;
+        for (const e of view.events) {
+          const x = pct(view, e.v);
+          let mark = e.id ? sharedMarks.get(e.id) : null;
+          const isNew = !mark;
+          if (isNew) {
+            mark = el('span', e.end === undefined ? 'sc-dot' : 'sc-band');
+            if (e.color) mark.style.setProperty('--ev', e.color);
+            if (e.id) {
+              sharedMarks.set(e.id, mark);
+              marksEl.append(mark);
+              parts.push({ node: mark, delay: t });
+              sharedItems.push({ node: mark, v: e.v, end: e.end, fan: e.fan, fanRange: scene.fanRange });
+            } else {
+              add(mark, t, e.v, e.end);
+            }
+          }
+          if (e.name) {
+            // (opt: a card that can go on a narrow screen, where there isn't room for them all)
+            const card = el('span', `sc-mini sc-${e.side}${x > 66 ? ' sc-right' : ''}${e.opt ? ' sc-opt' : ''}`);
+            if (e.color) card.style.setProperty('--ev', e.color);
+            card.append(el('span', 'sc-when', e.when), el('span', 'sc-name', e.name));
+            if (e.img) {
+              // The picture, under the name; it's only fetched when the scene is about to play
+              const thumb = el('img', 'sc-thumb');
+              thumb.alt = '';
+              thumb.decoding = 'async';
+              const ratio = e.imgRatio || scene.imgRatio;
+              if (ratio) {
+                thumb.classList.add('fit');
+                thumb.style.setProperty('--ar', String(ratio));
+              }
+              thumb.dataset.src = new URL(`${scene.imgDir || ''}${e.img}${e.img.includes('.') ? '' : scene.imgExt || ''}`, APP_URL).href; // (a name with its own extension keeps it)
+              card.append(thumb);
+              thumbs.push(thumb);
+            }
+            add(card, t + 250, e.v, undefined, e.fan); // (a card goes with its dot, fanned or not)
+            t += view.step || 800;
+          } else if (isNew) {
+            t += 120;
+          }
+        }
+        frame.append(layer);
+        // How long the zoom into this view takes: longer the further it goes
+        const before = vi ? scene.views[vi - 1] : null;
+        const zoomMs = before ? Math.max(900, Math.min(1800, 500 + 90 * Math.log((before.max - before.min) / (view.max - view.min)))) : 0;
+        return { layer, parts, items, at: view.at, zoomMs, def: view };
+      });
+      frame.append(marksEl); // (on top of the views, so a crowd of dots that carry on is seen over the ones that fade away)
+      stage.append(frame);
+      sceneEl.append(head, stage);
+      stack.append(sceneEl);
+      const built = { el: sceneEl, views, axis, rulerEl, ruler: scene.ruler, rulerUnit: scene.rulerUnit, tickMap: new Map(), thumbs };
+      // (scenes without a ruler of their own keep the ticks they were given)
+      // Draws everything for the part of the axis in view (`fade`: new ticks fade in)
+      built.show = (vp, fade = true) => {
+        views.forEach((v) => v.items.forEach((item) => place(item, vp)));
+        sharedItems.forEach((item) => place(item, vp));
+        syncRuler(built, vp, fade);
+      };
+      views.forEach((v) => v.items.forEach((item) => place(item, scene.views[0])));
+      sharedItems.forEach((item) => place(item, scene.views[0]));
+      return built;
+    });
+
+    const tabs = SHOWCASE.map((scene, i) => {
+      const b = el('button', 'sc-tab');
+      b.type = 'button';
+      b.append(el('span', null, scene.kind), el('span', 'sc-progress'));
+      b.addEventListener('click', () => show(i));
+      tabsBox.append(b);
+      return b;
+    });
+
+    let index = 0;
+    let running = false;   // the home screen is showing
+    let paused = false;    // the pointer (or the keyboard) is on the preview
+    let timers = [];       // what's still to appear in this scene
+    let cycleTimer = 0;    // the move on to the next scene
+    let cycleLeft = CYCLE;
+    let cycleStart = 0;
+    let zoomFrame = 0;     // the zoom that's under way
+    const later = (fn, ms) => timers.push(setTimeout(fn, ms));
+    const clearTimers = () => {
+      timers.forEach(clearTimeout);
+      timers = [];
+      cancelAnimationFrame(zoomFrame);
+      zoomFrame = 0;
+    };
+
+    // Zooms the scene from one view to the next, moving everything along
+    function zoomTo(scene, to) {
+      const a = scene.views[to - 1];
+      const b = scene.views[to];
+      const start = performance.now();
+      const step = (now) => {
+        const p = Math.max(0, Math.min(1, (now - start) / b.zoomMs));
+        scene.show(p >= 1 ? b.def : viewportBetween(a.def, b.def, a.def.zoomV, easeInOut(p)), true);
+        zoomFrame = p < 1 ? requestAnimationFrame(step) : 0;
+      };
+      zoomFrame = requestAnimationFrame(step);
+    }
+
+    function arm() {
+      clearTimeout(cycleTimer);
+      cycleStart = Date.now();
+      cycleTimer = setTimeout(() => show((index + 1) % scenes.length), cycleLeft);
+    }
+    function pause() {
+      if (paused) return;
+      paused = true;
+      root.classList.add('paused');
+      if (!running) return;
+      clearTimeout(cycleTimer);
+      cycleLeft = Math.max(1500, cycleLeft - (Date.now() - cycleStart));
+    }
+    function resume() {
+      if (!paused) return;
+      paused = false;
+      root.classList.remove('paused');
+      if (running && !reduced.matches) arm();
+    }
+
+    function play(scene) {
+      // Back to the start, without anything animating on the way
+      scene.el.classList.add('sc-reset');
+      scene.axis.classList.remove('on');
+      scene.views.forEach((v) => {
+        v.layer.classList.remove('leaving');
+        v.parts.forEach((p) => p.node.classList.remove('on'));
+      });
+      scene.tickMap.forEach((tick) => { clearTimeout(tick.timer); tick.node.remove(); });
+      scene.tickMap.clear();
+      scene.show(scene.views[0].def, false); // (its ruler waits to be shown)
+      void scene.el.offsetWidth;
+      scene.el.classList.remove('sc-reset');
+      if (reduced.matches) { // no motion: the first view, complete
+        scene.axis.classList.add('on');
+        scene.tickMap.forEach((tick) => tick.node.classList.add('on'));
+        scene.views[0].parts.forEach((p) => p.node.classList.add('on'));
+        return;
+      }
+      later(() => scene.axis.classList.add('on'), 30);
+      [...scene.tickMap.values()].forEach((tick, i) => later(() => tick.node.classList.add('on'), 150 + i * 50));
+      scene.views.forEach((v, vi) => {
+        let base = 0;
+        if (vi > 0) {
+          // The next view: the last one fades out as the scene zooms in on
+          // the spot, and this one's things appear as they come into sight
+          later(() => {
+            scene.views[vi - 1].layer.classList.add('leaving');
+            zoomTo(scene, vi);
+          }, v.at);
+          base = v.at + 0.6 * v.zoomMs;
+        }
+        v.parts.forEach((p) => later(() => p.node.classList.add('on'), base + p.delay));
+      });
+    }
+
+    function show(i) {
+      index = i;
+      clearTimers();
+      scenes.forEach((s, k) => s.el.classList.toggle('active', k === i));
+      tabs.forEach((b, k) => { b.setAttribute('aria-pressed', String(k === i)); b.classList.remove('run'); });
+      void root.offsetWidth; // (so the progress bar starts again from the left)
+      if (!reduced.matches) tabs[i].classList.add('run');
+      cardBtn.setAttribute('aria-label', `Open the example "${SHOWCASE[i].title}" (${SHOWCASE[i].kind})`);
+      // (this scene's pictures are fetched now, and the next one's, so they're there when it comes)
+      [scenes[i], scenes[(i + 1) % scenes.length]].forEach((s) => s.thumbs.forEach((img) => {
+        if (img.dataset.src) { img.src = img.dataset.src; delete img.dataset.src; }
+      }));
+      play(scenes[i]);
+      cycleLeft = CYCLE;
+      clearTimeout(cycleTimer);
+      if (running && !paused && !reduced.matches) arm();
+    }
+
+    // (if the setting changes while the page is open, the preview follows it)
+    reduced.addEventListener('change', () => { if (running) show(index); });
+    cardBtn.addEventListener('click', () => loadExample(SHOWCASE[index].key));
+    cardBtn.addEventListener('pointerenter', pause);
+    cardBtn.addEventListener('pointerleave', resume);
+    cardBtn.addEventListener('focus', pause);
+    cardBtn.addEventListener('blur', resume);
+
+    // Shows the example of that kind of timeline (the type buttons at the top of the home screen)
+    function select(key) {
+      const i = SHOWCASE.findIndex((s) => s.key === key);
+      if (i < 0 || i === index) return;
+      if (running) show(i); else index = i;
+    }
+
+    // Only runs while the home screen is showing
+    function setActive(on) {
+      if (on === running) return;
+      running = on;
+      // (the pointer may have been on the preview when it was hidden: starting over)
+      paused = false;
+      root.classList.remove('paused');
+      if (on) {
+        // (it starts with the kind of timeline that's chosen)
+        const chosen = SHOWCASE.findIndex((s) => s.key === state.format);
+        if (chosen >= 0) index = chosen;
+        show(index);
+      } else {
+        clearTimers();
+        clearTimeout(cycleTimer);
+        tabs.forEach((b) => b.classList.remove('run'));
+      }
+    }
+    return { setActive, select };
+  })();
 
   // ---------- Saving and opening files ----------
   // "Save to file" downloads the whole timeline: a plain .json file when it
@@ -5058,11 +6074,24 @@
           seenFiles.set(m.id, id);
           fileIds.set(id, m.id);
         }
-        media.push({ id: seenFiles.get(m.id), kind: m.kind, name: text(m.name, 200) || 'file' });
+        const entry = { id: seenFiles.get(m.id), kind: m.kind, name: text(m.name, 200) || 'file' };
+        const shape = Number(m.ratio); // (a photo shown whole: its width over its height)
+        if (m.kind === 'image' && m.fit === true && Number.isFinite(shape) && shape > 0.05 && shape < 20) {
+          entry.fit = true;
+          entry.ratio = Math.round(shape * 10000) / 10000;
+        }
+        media.push(entry);
       }
       if (media.length) out.media = media;
       const posterId = typeof ev.poster === 'string' ? seenFiles.get(ev.poster) : null;
-      if (posterId && media.some((m) => m.id === posterId && m.kind === 'image')) out.poster = posterId;
+      if (posterId && media.some((m) => m.id === posterId && m.kind === 'image')) {
+        out.poster = posterId;
+        const shape = Number(ev.posterRatio); // (Fit: the whole picture, in its own shape)
+        if (ev.posterFit === 'fit' && Number.isFinite(shape) && shape > 0.05 && shape < 20) {
+          out.posterFit = 'fit';
+          out.posterRatio = Math.round(shape * 10000) / 10000;
+        }
+      }
       // (the marker lines in the notes that say where the photos go name the new ids)
       if (out.note.includes('[[media:')) {
         const keep = new Set(media.map((m) => m.id));

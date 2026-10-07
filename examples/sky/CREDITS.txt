@@ -1,0 +1,16 @@
+Pictures for the "A year in the sky" example.
+
+The four season diagrams (march-equinox.svg, summer-solstice.svg, september-equinox.svg,
+winter-solstice.svg) were drawn for this site: the Sun, Earth's orbit, and where the Earth is on it,
+with its tilted axis and its night side. They are part of the site and need no credit.
+
+The meteor photos are from Wikimedia Commons (shrunk to 400 px):
+
+perseids.jpg           "Perseid Meteor Shower (201508130001HQ).jpg" - Bill Ingalls / NASA - public domain
+                       https://commons.wikimedia.org/wiki/File:Perseid_Meteor_Shower_(201508130001HQ).jpg
+orionids.jpg           "Orionid Meteor Shower Composite (50521737888).jpg" - Jim Vajda - CC BY 2.0
+                       https://creativecommons.org/licenses/by/2.0/
+                       https://commons.wikimedia.org/wiki/File:Orionid_Meteor_Shower_Composite_(50521737888).jpg
+geminids.jpg           "Geminid Meteor - Dec. 2012.jpg" - John Flannery - CC BY-SA 2.0
+                       https://creativecommons.org/licenses/by-sa/2.0/
+                       https://commons.wikimedia.org/wiki/File:Geminid_Meteor_-_Dec._2012.jpg
