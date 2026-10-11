@@ -658,6 +658,9 @@ body.dragging .track * { cursor: grabbing; }
 .mm-dot, .mm-band { position: absolute; display: block; background: var(--ev, var(--accent)); }
 .mm-dot { width: 6px; height: 6px; border-radius: 50%; }
 .mm-band { border-radius: 3px; opacity: 0.85; }
+/* The event whose card is open: bigger, ringed in the text colour, and above the others */
+.mm-dot.current, .mm-band.current { z-index: 1; opacity: 1; box-shadow: 0 0 0 2px var(--bg, #fff), 0 0 0 3.5px var(--text); }
+.mm-dot.current { width: 10px; height: 10px; }
 
 /* Horizontal: a short strip in the middle of the row at the top, level with the tags button
    (whose box is at 6px, 38px tall) so the timeline below can sit higher */

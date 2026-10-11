@@ -1335,6 +1335,7 @@
       const isExpanded = it.id === expandedId;
       it.card.classList.toggle('expanded', isExpanded);
       it.card.setAttribute('aria-expanded', String(isExpanded));
+      if (it.mark) it.mark.classList.toggle('current', isExpanded); // (its mark on the mini timeline)
       if (isExpanded) loadCardMedia(it); // (their files are only fetched once the card is opened, or hovered)
       else if (!it.card.matches(':hover')) it.cells.forEach((c) => { if (c.m.kind === 'video' && !c.node.paused) c.node.pause(); }); // (closed: no video plays on)
     });
@@ -2058,6 +2059,8 @@
       if (it.color) node.style.setProperty('--ev', it.color);
       node.style.setProperty('--a', `${Math.min(a, b) * 100}%`);
       node.style.setProperty('--b', `${Math.abs(b - a) * 100}%`);
+      node.classList.toggle('current', it.id === expandedId);
+      it.mark = node;
       frag.appendChild(node);
     }
     minimapMarks.appendChild(frag);
