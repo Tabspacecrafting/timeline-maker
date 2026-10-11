@@ -691,8 +691,9 @@
       case 'year': return [formatYearShort(yearOfMs(t + DAY), yearUnit)]; // a day in, safely inside the year
       case 'month': return withYear ? [fmtMonth.format(d), formatYear(d.getFullYear() + yearShift)] : [fmtMonth.format(d)];
       case 'day': return withYear ? [fmtDayMonth.format(d), formatYear(d.getFullYear() + yearShift)] : [fmtDayMonth.format(d)];
-      case 'sec': return [fmtTimeSec.format(d), fmtDayMonth.format(d)];
-      default: return [fmtTime.format(d), fmtDayMonth.format(d)];
+      // (a time, with its date: the date is shown above the time, see .date-first)
+      case 'sec': return [fmtTimeSec.format(d), fmtDayMonth.format(d), 'date-first'];
+      default: return [fmtTime.format(d), fmtDayMonth.format(d), 'date-first'];
     }
   }
 
@@ -880,7 +881,7 @@
       dot.style.setProperty('--ev', color);
     }
 
-    return { id: ev.id, t: ev.t, end: ev.end, created: ev.created ?? 0, startRef: ev.startRef, endRef: ev.endRef, pos: 0, card, dot, cells: parts.cells, mediaLoaded: false, poster, posterLoaded: false };
+    return { id: ev.id, t: ev.t, end: ev.end, color, created: ev.created ?? 0, startRef: ev.startRef, endRef: ev.endRef, pos: 0, card, dot, cells: parts.cells, mediaLoaded: false, poster, posterLoaded: false };
   }
 
   // The moment in the middle of the view, and how far into the view that is
@@ -915,6 +916,7 @@
     showcase.setActive(home);
     els.timelineEmpty.hidden = home || n > 0;
     els.timeline.hidden = n === 0;
+    minimap.hidden = n === 0; // (shown before the cards are measured: above a horizontal timeline it takes room)
     els.toolbar.hidden = home;
     // The vertical timeline's viewport fills the window below the header
     document.documentElement.style.setProperty('--header-h', `${els.header.offsetHeight}px`);
@@ -941,7 +943,7 @@
     items = [];
     scale = null;
     tickLayer = null;
-    if (!n) { updateScrollbar(); updateJumps(); return; }
+    if (!n) { buildMinimap(); updateScrollbar(); updateJumps(); return; }
 
     // Rebuilt cards must appear in their final state, not fade in or out
     track.classList.add('no-anim');
@@ -1050,6 +1052,7 @@
     positionItems();
     layout();
     drawTicks();
+    buildMinimap();
     updateScrollbar();
     void track.offsetHeight; // apply the final state before re-enabling transitions
     track.classList.remove('no-anim');
@@ -1237,7 +1240,7 @@
       }
     }
     if (state.showDates) eachTick(major, t0, t1, (t, d, yearShift) => {
-      let main, sub;
+      let main, sub, layoutClass;
       const year = d && major.kind !== 'year' && state.format === 'datetime' ? d.getFullYear() + yearShift : null;
       if (year !== null && (year > DATE_LIMIT || year <= -DATE_LIMIT)) {
         // Events this far out only have a year, so the axis has no months, days
@@ -1246,9 +1249,9 @@
         if (!(d.getMonth() === 0 && d.getDate() === 1 && d.getHours() === 0 && d.getMinutes() === 0 && d.getSeconds() === 0)) return;
         main = formatYear(year);
       } else {
-        [main, sub] = tickLabel(t, d, major, yearShift, yearUnit);
+        [main, sub, layoutClass] = tickLabel(t, d, major, yearShift, yearUnit);
       }
-      const tick = el('div', 'tick', main);
+      const tick = el('div', layoutClass ? `tick ${layoutClass}` : 'tick', main);
       if (sub) tick.appendChild(el('small', null, sub));
       place(tick, posAt(t));
       frag.appendChild(tick);
@@ -2028,7 +2031,69 @@
   // --- The scrollbar ---
   // Custom, so it covers the whole timeline however long it is: the thumb
   // shows where the view is. Drag the thumb to move; click the bar to fly there.
+  // --- The mini timeline ---
+  // The whole timeline, small, with its events marked and the part that's on screen lit up.
+  // Positions are shares of the axis (from its start to its end), so it doesn't matter how
+  // far in the main timeline is zoomed.
+  const MINIMAP_LENGTH = 360; // px, its longest (the same in the stylesheet: .horizontal .minimap)
+  const JUMP_BUTTON_H = 52;   // px, about how tall the vertical Previous / Next buttons are
+  const minimap = $('#minimap');
+  const minimapView = $('#mm-view');
+  const minimapMarks = $('#mm-marks');
+  const axisShare = (x) => {
+    const from = axisStartX();
+    const span = axisEndX() - from;
+    return span > 0 ? (x - from) / span : 0;
+  };
+
+  // The marks: a dot for each moment, a bar for each period (when the events change)
+  function buildMinimap() {
+    minimapMarks.textContent = '';
+    if (!scale || !scale.pxPerMs || !items.length) return;
+    const frag = document.createDocumentFragment();
+    for (const it of items) {
+      const a = clamp(axisShare(ax(it.t)), 0, 1);
+      const b = it.end === null ? a : clamp(axisShare(ax(it.end)), 0, 1);
+      const node = el('i', it.end === null ? 'mm-dot' : 'mm-band');
+      if (it.color) node.style.setProperty('--ev', it.color);
+      node.style.setProperty('--a', `${Math.min(a, b) * 100}%`);
+      node.style.setProperty('--b', `${Math.abs(b - a) * 100}%`);
+      frag.appendChild(node);
+    }
+    minimapMarks.appendChild(frag);
+  }
+
+  // The lit part, and where the mini timeline sits (beside the main one when vertical)
+  function updateMinimap() {
+    const show = !!scale && !!scale.pxPerMs && !els.timeline.hidden && items.length > 0;
+    minimap.hidden = !show;
+    if (!show) return;
+    if (state.horizontal) {
+      minimap.style.top = minimap.style.left = minimap.style.height = ''; // (placed by the stylesheet)
+    } else {
+      // A short strip in the right-hand column, midway between the Previous button (at the top
+      // of the timeline's window) and the Next button (near the bottom), where the readout also
+      // goes; sideways it's placed by the stylesheet. Its length is what fits between them.
+      const header = els.header.offsetHeight;
+      const buttonsTop = header + 14 + JUMP_BUTTON_H; // (the bottom of Previous)
+      const buttonsBottom = window.innerHeight - 84 - JUMP_BUTTON_H; // (the top of Next)
+      const length = Math.min(MINIMAP_LENGTH, buttonsBottom - buttonsTop - 32);
+      minimap.hidden = length < 40;
+      minimap.style.left = '';
+      minimap.style.top = `${(buttonsTop + buttonsBottom) / 2 - length / 2}px`;
+      minimap.style.height = `${Math.max(0, length)}px`;
+    }
+    const v = viewRange();
+    const x0 = scale.vx + v.start / scale.pxPerMs;
+    const x1 = scale.vx + v.end / scale.pxPerMs;
+    const a = clamp(axisShare(x0), 0, 1);
+    const b = clamp(axisShare(x1), 0, 1);
+    minimapView.style.setProperty('--a', `${a * 100}%`);
+    minimapView.style.setProperty('--b', `${Math.max(0, b - a) * 100}%`);
+  }
+
   function updateScrollbar() {
+    updateMinimap();
     const h = state.horizontal;
     const bar = h ? els.hscroll : els.vscroll;
     (h ? els.vscroll : els.hscroll).hidden = true;
@@ -2094,6 +2159,7 @@
     pageFrame = requestAnimationFrame(() => {
       arrange(false);
       drawTicks();
+      updateMinimap(); // (it stays put in the window, the timeline moves)
     });
   }, { passive: true });
 
@@ -2163,6 +2229,7 @@
     } else {
       document.documentElement.style.removeProperty('--jump-prev-left');
     }
+    updateMinimap(); // (it keeps clear of the tags box, which changes size)
   }
 
   // Reveals the event's card and moves the view just far enough that it's
@@ -2315,24 +2382,115 @@
   // under way lands it at once (instead of zooming a further step), like
   // Previous/Next and Fit do; the other button turns it round.
   const ZOOM_STEP_MS = 450;
+
+  // What the + and - buttons zoom around: the selected (expanded) event, if it's on screen, stays
+  // exactly where it is while everything else grows or shrinks around it; otherwise the
+  // middle of the view. Returns the axis time and the track position it stays at.
+  function zoomAnchor() {
+    const v = viewRange();
+    const middle = (v.start + v.end) / 2;
+    const it = expandedId === null ? null : items.find((x) => x.id === expandedId);
+    if (it && it.inWindow !== false) {
+      // (a period is held at the part of its band nearest the middle of the view)
+      const lo = it.end === null ? it.pos : it.lo;
+      const hi = it.end === null ? it.pos : it.hi;
+      if (hi >= v.start && lo <= v.end) {
+        const at = clamp(middle, Math.max(lo, v.start), Math.min(hi, v.end));
+        return { t: timeAt(at), at };
+      }
+    }
+    return { t: timeAt(middle), at: middle };
+  }
+
   function zoomStep(factor, key) {
     if (!scale || !scale.pxPerMs || skipFlight(key)) return;
     const target = clamp(state.zoom * factor, zoomLimits.min, zoomLimits.max);
     if (Math.abs(target / state.zoom - 1) < 1e-6) return;
-    const v = viewRange();
-    const middle = (v.start + v.end) / 2;
-    const t = timeAt(middle);
+    const { t, at } = zoomAnchor();
     state.zoom = target; // (the flight ends at this zoom)
     save();
     updateZoomButtons();
-    flyTo(t, middle, () => {
+    flyTo(t, at, () => {
       layout(); // settle which cards show, now it's arrived
       updateZoomButtons();
       save();
     }, undefined, key, ZOOM_STEP_MS);
   }
-  els.zoomIn.addEventListener('click', () => zoomStep(1.5, 'zoom-in'));
-  els.zoomOut.addEventListener('click', () => zoomStep(1 / 1.5, 'zoom-out'));
+
+  // Holding a + or - button keeps zooming, smoothly, until it's let go. A quick press is
+  // just a click (one step, above). Once the button has been held a moment, the zoom runs
+  // on every frame at a steady rate, around the same spot as a click would use.
+  const ZOOM_HOLD_DELAY_MS = 260;
+  const ZOOM_HOLD_RATE = 1.3;    // e-folds of zoom per second (about 3.7x each second)
+  let holdTimer = 0;
+  let holding = false;           // a hold is zooming (until the button is let go)
+  let holdClickPending = false;  // the click that ends a hold is not a step
+
+  function endHold() {
+    if (!holding) return;
+    holding = false;
+    cancelAnimationFrame(viewFrame);
+    viewFrame = 0;
+    if (flying && activeFlight && activeFlight.key === 'hold') {
+      flying = false;
+      activeFlight = null;
+      state.zoom = clamp(scale.pxPerMs / scale.basePx, zoomLimits.min, zoomLimits.max);
+      scale.pxPerMs = scale.basePx * state.zoom;
+      setView(scale.vx);
+      layout(); // settle which cards show, now it has stopped
+      updateZoomButtons();
+      save();
+    }
+  }
+
+  function startHold(direction) {
+    if (!scale || !scale.pxPerMs || els.timeline.hidden) return;
+    stopViewAnimation(); // (a step still under way stops where it has got to)
+    const { t, at } = zoomAnchor();
+    const lowest = scale.basePx * zoomLimits.min;
+    const highest = scale.basePx * zoomLimits.max;
+    holding = true;
+    holdClickPending = true;
+    flying = true; // (so anything else that moves the view, like a drag, settles the zoom: see stopViewAnimation)
+    activeFlight = { key: 'hold', finish: endHold };
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const px = clamp(scale.pxPerMs * Math.exp(direction * ZOOM_HOLD_RATE * dt), lowest, highest);
+      if (px !== scale.pxPerMs) {
+        scale.pxPerMs = px;
+        scale.vx = clampVx(ax(t) - at / px, px);
+        updateView();
+      }
+      viewFrame = requestAnimationFrame(step);
+    };
+    viewFrame = requestAnimationFrame(step);
+  }
+
+  function watchHold(button, direction, key) {
+    button.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || button.disabled) return;
+      clearTimeout(holdTimer);
+      holdTimer = setTimeout(() => startHold(direction), ZOOM_HOLD_DELAY_MS);
+    });
+    button.addEventListener('click', () => {
+      if (holdClickPending) { holdClickPending = false; return; }
+      zoomStep(direction > 0 ? 1.5 : 1 / 1.5, key);
+    });
+    button.addEventListener('contextmenu', (e) => e.preventDefault()); // (a long press on a touch screen)
+  }
+  const stopHolding = () => {
+    clearTimeout(holdTimer);
+    endHold();
+    // (the click that follows a hold comes straight after the release, if it comes at all)
+    if (holdClickPending) setTimeout(() => { holdClickPending = false; }, 0);
+  };
+  window.addEventListener('pointerup', stopHolding);
+  window.addEventListener('pointercancel', stopHolding);
+  window.addEventListener('blur', stopHolding);
+  watchHold(els.zoomIn, 1, 'zoom-in');
+  watchHold(els.zoomOut, -1, 'zoom-out');
 
   // Ctrl + scroll wheel (or a trackpad pinch) zooms, one update per frame
   let pendingZoom = 1;

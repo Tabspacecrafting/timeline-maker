@@ -77,6 +77,14 @@
   </header>
 
   <main>
+    <!-- A small copy of the whole timeline, with the part on screen lit: above a horizontal
+         timeline, at the left of a vertical one (marks and highlight are drawn from app.js) -->
+    <div id="minimap" class="minimap" aria-hidden="true" hidden>
+      <div class="mm-rail"></div>
+      <div id="mm-view" class="mm-view"></div>
+      <div id="mm-marks" class="mm-marks"></div>
+    </div>
+
     <!-- Home screen: pick a format, then start with a title or with an event -->
     <section id="home" class="empty">
       <!-- The timeline's format can only be chosen while it has no events -->

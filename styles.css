@@ -165,6 +165,8 @@ body.home .title-input { display: none; }
 .horizontal .icon-to-v { display: block; }
 
 .icon-btn:disabled { opacity: 0.35; cursor: default; background: transparent; }
+/* The zoom buttons can be held down: no text selection or touch-screen scrolling then */
+#zoom-in, #zoom-out { touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 
 #toggle-grid[aria-pressed="true"],
 #toggle-dates[aria-pressed="true"] { color: var(--accent); }
@@ -642,6 +644,55 @@ body.dragging .track * { cursor: grabbing; }
 .scroll-thumb:hover, .scroll-thumb.active { background: var(--muted); }
 .scroll-thumb.active { cursor: grabbing; }
 
+/* The mini timeline: all of the timeline in small, with the part on screen lit.
+   --a is where a mark starts and --b how long it is, as shares of the whole (set from JS).
+   Above a horizontal timeline; at the left of a vertical one, in the page's margin there. */
+.minimap { position: relative; pointer-events: none; }
+.minimap[hidden] { display: none; }
+.mm-rail { position: absolute; border-radius: 2px; background: var(--border); }
+/* The part on screen is marked by a line at each of its edges, nothing more */
+.mm-view { position: absolute; }
+/* (in the text colour, so they stand out from the events' colours) */
+.mm-view::before, .mm-view::after { content: ""; position: absolute; border-radius: 1px; background: var(--text); }
+.mm-marks { position: absolute; inset: 0; }
+.mm-dot, .mm-band { position: absolute; display: block; background: var(--ev, var(--accent)); }
+.mm-dot { width: 6px; height: 6px; border-radius: 50%; }
+.mm-band { border-radius: 3px; opacity: 0.85; }
+
+/* Horizontal: a short strip in the middle of the row at the top, level with the tags button
+   (whose box is at 6px, 38px tall) so the timeline below can sit higher */
+body.horizontal main { position: relative; }
+.horizontal .minimap { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); height: 22px; width: min(360px, calc(100% - 140px)); }
+.horizontal .cat-dock { --cat-dock-h: 46px; }
+.horizontal .cat-dock > .cat-panel { top: 6px; }
+.horizontal .mm-rail { left: 0; right: 0; top: calc(50% - 1px); height: 2px; }
+.horizontal .mm-view { left: var(--a); width: var(--b); min-width: 4px; top: 1px; bottom: 1px; }
+.horizontal .mm-view::before, .horizontal .mm-view::after { top: 0; bottom: 0; width: 2px; }
+.horizontal .mm-view::before { left: -1px; }
+.horizontal .mm-view::after { right: -1px; }
+.horizontal .mm-dot { left: var(--a); top: 50%; transform: translate(-50%, -50%); }
+.horizontal .mm-band { left: var(--a); width: max(var(--b), 6px); top: calc(50% - 2.5px); height: 5px; }
+
+/* Vertical: in the column at the right (the Previous and Next buttons' column), midway
+   between those two buttons and centred on them; its height and top are set from JS (see
+   updateMinimap). While the time-travelled readout is showing in the same spot, it steps back. */
+body:not(.horizontal) .minimap {
+  position: fixed;
+  z-index: 5;
+  left: auto;
+  right: calc(var(--rail-right) + var(--rail-w) / 2 - 6px);
+  width: 12px;
+  transition: opacity 0.3s;
+}
+body:has(.flight-readout.rail.shown) .minimap { opacity: 0.2; }
+body:not(.horizontal) .mm-rail { top: 0; bottom: 0; left: calc(50% - 1px); width: 2px; }
+body:not(.horizontal) .mm-view { top: var(--a); height: var(--b); min-height: 4px; left: 0; right: 0; }
+body:not(.horizontal) .mm-view::before, body:not(.horizontal) .mm-view::after { left: 0; right: 0; height: 2px; }
+body:not(.horizontal) .mm-view::before { top: -1px; }
+body:not(.horizontal) .mm-view::after { bottom: -1px; }
+body:not(.horizontal) .mm-dot { top: var(--a); left: 50%; transform: translate(-50%, -50%); }
+body:not(.horizontal) .mm-band { top: var(--a); height: max(var(--b), 6px); left: calc(50% - 2.5px); width: 5px; }
+
 /* Background gridlines, one per date label (major) and finer ones between */
 /* They start at the axis so they don't run through the date labels */
 /* --grid-w: 1px, except during a long flight, when they swell (set from JS) */
@@ -744,6 +795,10 @@ body.dragging .track * { cursor: grabbing; }
   pointer-events: none;
 }
 .tick small { display: block; color: var(--faint); font-size: 0.65rem; }
+/* A time label has its date above it (the time stays the stronger line) */
+.tick.date-first { display: flex; flex-direction: column; align-items: flex-end; }
+.tick.date-first small { order: -1; }
+.horizontal .tick.date-first { align-items: center; }
 .tick::after {
   content: "";
   position: absolute;
